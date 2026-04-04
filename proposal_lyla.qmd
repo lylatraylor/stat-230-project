@@ -3,5 +3,43 @@ title: "Proposal"
 format: html
 ---
 
-Hello
+<!-- 
+  CONFIRM:
+  - How many total observations/scans are there?
+  - How many scans per site (all 6 sites)?
+  - What is the response variable exactly?
+  - What percentage split do we want?
+-->
 
+## Analysis Plan
+
+### Data Preprocessing
+
+Prior to modeling, all predictor variables will be scaled and centered to ensure that the LASSO penalty is appliet equitably across variables, regardless of their original units. 
+
+### Train/Test Split
+
+The dataset sill be split into training (75%) and test (25%) sets. Because obserations were collected across 6 distinct field sites, we will perform a stratified random split, sampling proportionally from each site. This ensures that all sites are represented in both the training and test sets and prevents site-level imbalance from inflating or deflating model performance estimates.
+
+** add in exact number of scanes per site? **
+
+### Model: LASSO regression
+We will fit a LASSO (Least Absolute Shrinkage and Selection Operator) regression model to predict [response variable] from the [80] voxelized LiDAR features. LASSO was chosen over ridge regression because it performs variable selection by shrinking coefficients of irrelevant predictors to exactly zero. Given the large number of predictors relative to observations and the expectation that a subset of voxel features will be sufficient to explain variation in the response, LASSO's sparsity-including penalty is preferable. 
+Additionally, several features are represented by both their mean and median, introducing multicollinearity among predictors. Unlike ridge regression, which retains all correlated variables with shrunk coefficients, LASSO's tendency to select one variable from a correlated group and zero out the others is preferable here, as we do not require both the mean and median of a feature to be retained in the final model.
+
+### Hyperparameter Tuning
+
+The regularization parameter $\lambda$ controls the degree of shrinkage and will be selected via k-fold cross-validation on the training set. We will evaluate the model perfomance across a grid of $\lambda$ values and select the value that minimizes cross-validated mean squared error (CV-MSE). The selected $\lambda$ will then be used to refit the model on the full training set.
+
+** add exact range of lambda values? ** 
+
+### Model Diagnositics
+
+After fitting the final model we will assess the following:
+
+- Linearity and homoskedasticity: Using a residuals vs. fitted values plot, we can check for non-linear patterns and unequal variance. If heteroskedasticity is detected, we will consider a variance-stabilizing transformation of he response or the use of heteroskedasticity-robust standard errors.
+- Normality of residuals: A Q-Q plot of residuals will be inspected to assess whether the normality assumption is approximately satisfied.
+
+### Evaluation
+
+Final model performance will be evaluated on the held-out test set using room mean squared error (RMSE) and $R^2$
