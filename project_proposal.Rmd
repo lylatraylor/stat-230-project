@@ -1,6 +1,6 @@
 ---
 title: "STAT 230A Final Project Proposal"
-subtitle: "Predicting Surface Fuel Loads from Terrestrial LiDAR Scans"
+subtitle: "Predicting Surface Fuel Loads from Terrestrial LiDAR Scan Metrics"
 author: Kea Rutherford and Lyla Traylor
 output: 
   pdf_document
@@ -8,13 +8,13 @@ output:
 
 ## Introduction 
 
-Surface fuels (dead woody material on the forest floor) are a critical forest feature to measure and monitor over time because they are a primary driver of wildfire behavior. Surface fuel measurements are essential for assessing wildfire risk and for evaluating the success of fuel reduction treatments. Surface fuels are highly variable across time and space and, therefore, must be measured frequently at high intensity. Unfortunately, they are extremely labor intensive to measure using the current standard field-based methods. 
+Surface fuels (dead woody material on the forest floor) are a critical forest component to measure and monitor over time because they are a primary driver of wildfire behavior. Accurate measurements of surface fuels are essential for assessing wildfire risk and evaluating the effectiveness of fuel reduction treatments. Because surface fuels are highly variable across time and space, they must be measured frequently and at high intensity. However, doing so is extremely labor-intensive using current standard field-based methods. 
 
-A promising alternative method is to predict surface fuel loads from terrestrial LiDAR scans. Terrestrial LiDAR is a ground-based remote sensing technology that generates detailed 3D point clouds (See figure of point cloud in Appendix A). A single terrestrial LiDAR scan only takes about 5 minutes in the field, which is substantially faster than the current standard methods. Our goal is to build a model to predict surface fuel loads from metrics derived from terrestrial LiDAR scans. 
+A promising alternative is to predict surface fuel loads from terrestrial LiDAR scans. Terrestrial LiDAR is a ground-based remote sensing technology that generates detailed 3D point clouds (See Figs. 1 and 2 in the Appendix). A single scan takes only about 5 minutes in the field, making it substantially faster than transitional methods. Out goal is to develop a predictive model for surface fuel loads using metrics derived from terrestrial LiDAR scans. 
 
 ## Data description 
 
-184 plots were measured across six sites in the Sierra Nevada mixed-conifer forest zone (Table 1). The plots from site BGL were measured and provided by Kea Rutherford. The data from the rest of the sites were provided by Kea's research collaborators at UC San Diego. 
+A total of 184 plots were measured across six sites in the Sierra Nevada mixed-conifer forest zone (Table 1). The plots from site BGL were measured and provided by Kea Rutherford, while the data from the remaining sites were provided by collaborators at UC San Diego. 
 
 \begin{table}[h!]
 \centering
@@ -34,53 +34,13 @@ all sites & 184 \\
 \caption{Number of observations across sites.}
 \end{table}
 
-At each plot, a terrestrial LiDAR scan was taken at plot center. All scans were uploaded to and processed by IntELiMon (Interagency Ecosystem LiDAR Monitoring program maintained by the US Geological Survey's Earth Resources Observation and Science Center). The output from IntELiMon is a large set of plot-level summary metrics derived from the terrestrial LiDAR scans. Some example metrics include: (1) fine_l1_cnt (count of points in the 0-3 meter high voxelized point clouds with tree stems and shrubs removed), (2) TBA (total basal area of all detected overstory trees calculated from classified stem points in the point cloud), and (3) shrubs_l1_cnt (count of points in the Shrub classified voxelized point cloud). 
+At each plot, a terrestrial LiDAR scan was taken at plot center. All scans were uploaded to and processed by IntELiMon (Interagency Ecosystem LiDAR Monitoring program maintained by the US Geological Survey's Earth Resources Observation and Science Center). The output from IntELiMon is a large set of plot-level summary metrics derived from the LiDAR scans. Example metrics include: (1) fine_l1_cnt (count of points in the 0-3 meter high voxelized point clouds with tree stems and shrubs removed), (2) TBA (total basal area of all detected overstory trees calculated from classified stem points in the point cloud), and (3) shrubs_l1_cnt (count of points in the Shrub classified voxelized point cloud). 
 
-At each plot, surface fuels were also directly measured using line-intercept transects (which is the current standard field-based method; Brown 1974). Surface fuel loads were then calculated from the line-intercept transect data using appropriate equations developed for Sierra Nevada mixed-conifer forests (van Wagtendonk et al. 1996, 1998).  
+At each plot, surface fuels were also directly measured using line-intercept transects (the current standard field-based method; Brown 1974). Surface fuel loads were then calculated from the transect data using equations developed for Sierra Nevada mixed-conifer forests (van Wagtendonk et al. 1996, 1998).  
 
-For this project, the response variable is total fine surface fuel load in megagrams per hectare (fine_load_Mg_ha) calculated from the line-intercept transect data. Fine surface fuels are defined as $\le$ 3 inches in diameter. This response variable is continuous, ranging from 0.89 to 39.48. The predictor variables are 75 summary metrics derived by IntELiMON from terrestrial LiDAR scans. All the predictor variables are either continuous or positive integers. See evidence that we can load the data into R in Appendix B.    
+For this project, the response variable is fine surface fuel load in megagrams per hectare (fine_load_Mg_ha) calculated from the line-intercept transect data. Fine surface fuels are defined as those with diameter $\le$ 3 inches. The response variable is continuous, ranging from 0.89 to 39.48. The predictor variables consist of 75 summary metrics derived by IntELiMON from the terrestrial LiDAR scans, all of which are numeric. 
 
-## Regression analysis Plan
-
-### Data preprocessing
-
-Prior to modeling, all predictor variables will be scaled and centered to ensure that the LASSO penalty is appliet equitably across variables, regardless of their original units. 
-
-### Train/Test Split
-
-The dataset sill be split into training (75%) and test (25%) sets. Because obserations were collected across 6 distinct field sites, we will perform a stratified random split, sampling proportionally from each site. This ensures that all sites are represented in both the training and test sets and prevents site-level imbalance from inflating or deflating model performance estimates.
-
-** add in exact number of scanes per site? **
-
-### Model: LASSO regression
-We will fit a LASSO (Least Absolute Shrinkage and Selection Operator) regression model to predict [response variable] from the [80] voxelized LiDAR features. LASSO was chosen over ridge regression because it performs variable selection by shrinking coefficients of irrelevant predictors to exactly zero. Given the large number of predictors relative to observations and the expectation that a subset of voxel features will be sufficient to explain variation in the response, LASSO's sparsity-including penalty is preferable. 
-Additionally, several features are represented by both their mean and median, introducing multicollinearity among predictors. Unlike ridge regression, which retains all correlated variables with shrunk coefficients, LASSO's tendency to select one variable from a correlated group and zero out the others is preferable here, as we do not require both the mean and median of a feature to be retained in the final model.
-
-### Hyperparameter Tuning
-
-The regularization parameter $\lambda$ controls the degree of shrinkage and will be selected via k-fold cross-validation on the training set. We will evaluate the model perfomance across a grid of $\lambda$ values and select the value that minimizes cross-validated mean squared error (CV-MSE). The selected $\lambda$ will then be used to refit the model on the full training set.
-
-** add exact range of lambda values? ** 
-
-### Model Diagnositics
-
-After fitting the final model we will assess the following:
-
-- Linearity and homoskedasticity: Using a residuals vs. fitted values plot, we can check for non-linear patterns and unequal variance. If heteroskedasticity is detected, we will consider a variance-stabilizing transformation of he response or the use of heteroskedasticity-robust standard errors.
-- Normality of residuals: A Q-Q plot of residuals will be inspected to assess whether the normality assumption is approximately satisfied.
-
-### Evaluation
-
-Final model performance will be evaluated on the held-out test set using room mean squared error (RMSE) and $R^2$
-
-
-## References 
-
-
-## Appendix A
-
-
-## Appendix B
+The following code demonstrates that we can load the data into R:  
 
 ```{r, include=FALSE}
 library(dplyr)
@@ -90,4 +50,40 @@ library(readr)
 ```{r}
 data <- read_csv("fuels_data.csv", show_col_types = FALSE)
 head(data)
+```
+
+## Regression analysis plan
+
+We will fit a LASSO (Least Absolute Shrinkage and Selection Operator) regression model to predict fine surface fuel load from the 75 terrestrial LiDAR-derived metrics. LASSO is appropriate because it performs variable selection by shrinking some coefficients exactly to zero, which is desirable when many predictors may be irrelevant, as is the case here. 
+
+**Standardization:** All predictor variables will be standardized prior to model fitting (the R pacakge we will use, glmnet, does this by default).  
+
+**Training and testing data**: The dataset will be split into training (75%) and test (25%) sets, with proportional representation of all six forest sites in both sets. 
+
+**Selecting $\lambda$**: The tuning parameter $\lambda$, which controls the degree of shrinkage, will be selected using k-fold cross-validation on the training set. We will select the value of $\lambda$ that minimizes the cross-validated mean squared error. 
+
+**Model diagnostics:** We will use a residual plot to assess whether the linear model is appropriate (i.e., no systematic or curvilinear trends in the residuals) and to check for homoskedasticity (i.e., constant variance of the residuals across the fitted values). We will also use a Q-Q plot to assess whether the residuals approximately follow a normal distribution. If there is evidence of heteroskedasticity, we will consider transforming the response variable.
+
+**Final model evaluation:** Final model performance will be evaluated on the held-out test set using mean squared error and $R^2$. 
+
+\newpage
+
+## References 
+
+Brown, J.K. (1974). *Handbook for inventorying downed woody material.* General Technical Report INT-16. USDA Forest Service, Intermountain Forest and Range Experiment Station, Ogden, UT. https://research.fs.usda.gov/treesearch/28647
+  
+van Wagtendonk, J.W., Benedict, J.M., & Sydoriak, W.M. (1996). Physical properties of woody fuel particles of Sierra Nevada conifers. *International Journal of Wildland Fire*, 6(3), 117–123. https://doi.org/10.1071/WF9960117
+  
+van Wagtendonk, J.W., Benedict, J.M. & Sydoriak, W.M. (1998). Fuel bed characteristics of Sierra Nevada conifers. *Western Journal of Applied Forestry*, 13(3), 73–84. https://doi.org/10.1093/wjaf/13.3.73
+
+\newpage
+
+## Appendix
+
+```{r fig:myimage1, echo=FALSE, fig.cap="Terrestrial LiDAR point cloud, entire plot", out.width="75%", fig.align="center"}
+knitr::include_graphics("fig1.png")
+```
+
+```{r fig:myimage2, echo=FALSE, fig.cap="Terrestrial LiDAR point cloud, zoomed in", out.width="75%", fig.align="center"}
+knitr::include_graphics("fig2.png")
 ```
