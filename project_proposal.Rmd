@@ -8,13 +8,13 @@ output:
 
 ## Introduction 
 
-Surface fuels (dead woody material on the forest floor) are a critical forest component to measure and monitor over time because they are a primary driver of wildfire behavior. Accurate measurements of surface fuels are essential for assessing wildfire risk and evaluating the effectiveness of fuel reduction treatments. Because surface fuels are highly variable across time and space, they must be measured frequently and at high intensity. However, doing so is extremely labor-intensive using current standard field-based methods. 
+Surface fuels (dead woody material on the forest floor) are a critical forest component to measure and monitor over time because they are a primary driver of wildfire behavior and effects. Accurate measurements of surface fuels are essential for assessing wildfire risk and evaluating the effectiveness of fuel reduction treatments. Because surface fuels are highly variable across time and space, they must be measured frequently and at high intensity. However, doing so is extremely labor-intensive using current standard field-based methods. 
 
-A promising alternative is to predict surface fuel loads from terrestrial LiDAR scans. Terrestrial LiDAR is a ground-based remote sensing technology that generates detailed 3D point clouds (See Figs. 1 and 2 in the Appendix). A single scan takes only about 5 minutes in the field, making it substantially faster than transitional methods. Out goal is to develop a predictive model for surface fuel loads using metrics derived from terrestrial LiDAR scans. 
+A promising alternative is to predict surface fuel loads from terrestrial LiDAR scans. Terrestrial LiDAR is a ground-based remote sensing technology that generates detailed 3D point clouds (see Figs. 1 and 2 in the Appendix). A single scan takes only about five minutes in the field, making it substantially faster than traditional methods. Our goal is to develop a predictive model for surface fuel loads using metrics derived from terrestrial LiDAR scans. 
 
 ## Data description 
 
-A total of 184 plots were measured across six sites in the Sierra Nevada mixed-conifer forest zone (Table 1). The plots from site BGL were measured and provided by Kea Rutherford, while the data from the remaining sites were provided by collaborators at UC San Diego. 
+A total of 164 plots were measured across six sites in the Sierra Nevada mixed-conifer forest zone (Table 1). The plots from site BGL were measured and provided by Kea Rutherford, while the data from the remaining sites were provided by collaborators at UC San Diego. 
 
 \begin{table}[h!]
 \centering
@@ -22,13 +22,13 @@ A total of 184 plots were measured across six sites in the Sierra Nevada mixed-c
 \hline
 site & number of plots \\
 \hline
-BGL & 26 \\
-DLB & 27 \\
-IND & 32 \\
+BGL & 25 \\
+DLB & 26 \\
+IND & 21 \\
 SHA & 25 \\
-TCU & 49 \\
+TCU & 42 \\
 WIN & 25 \\
-all sites & 184 \\
+all sites & 164 \\
 \hline
 \end{tabular}
 \caption{Number of observations across sites.}
@@ -36,35 +36,35 @@ all sites & 184 \\
 
 At each plot, a terrestrial LiDAR scan was taken at plot center. All scans were uploaded to and processed by IntELiMon (Interagency Ecosystem LiDAR Monitoring program maintained by the US Geological Survey's Earth Resources Observation and Science Center). The output from IntELiMon is a large set of plot-level summary metrics derived from the LiDAR scans. Example metrics include: (1) fine_l1_cnt (count of points in the 0-3 meter high voxelized point clouds with tree stems and shrubs removed), (2) TBA (total basal area of all detected overstory trees calculated from classified stem points in the point cloud), and (3) shrubs_l1_cnt (count of points in the Shrub classified voxelized point cloud). 
 
-At each plot, surface fuels were also directly measured using line-intercept transects (the current standard field-based method; Brown 1974). Surface fuel loads were then calculated from the transect data using equations developed for Sierra Nevada mixed-conifer forests (van Wagtendonk et al. 1996, 1998).  
+At each plot, surface fuels were also directly measured using line-intercept transects (the current standard field-based method; Brown 1974). Surface fuel loads (weight of surface fuels per unit area) were then calculated from the transect data using equations developed for Sierra Nevada mixed-conifer forests (van Wagtendonk et al. 1996, 1998).  
 
-For this project, the response variable is fine surface fuel load in megagrams per hectare (fine_load_Mg_ha) calculated from the line-intercept transect data. Fine surface fuels are defined as those with diameter $\le$ 3 inches. The response variable is continuous, ranging from 0.89 to 39.48. The predictor variables consist of 75 summary metrics derived by IntELiMON from the terrestrial LiDAR scans, all of which are numeric. 
+For this project, the response variable is total surface fuel load in megagrams per hectare (fuel_load_Mg_ha) calculated from the line-intercept transect data. The response variable is continuous, ranging from 0.89 to 299.85. The predictor variables consist of site (a categorical variable with six levels) and 74 summary metrics derived by IntELiMON from the terrestrial LiDAR scans (all of which are numeric). 
 
 The following code demonstrates that we can load the data into R:  
 
 ```{r, include=FALSE}
-library(dplyr)
 library(readr)
 ```
 
 ```{r}
 data <- read_csv("fuels_data.csv", show_col_types = FALSE)
+dim(data)
 head(data)
 ```
 
 ## Regression analysis plan
 
-We will fit a LASSO (Least Absolute Shrinkage and Selection Operator) regression model to predict fine surface fuel load from the 75 terrestrial LiDAR-derived metrics. LASSO is appropriate because it performs variable selection by shrinking some coefficients exactly to zero, which is desirable when many predictors may be irrelevant, as is the case here. 
+We will fit both a LASSO (Least Absolute Shrinkage and Selection Operator) and a ridge regression model. LASSO is appropriate because it performs variable selection by shrinking some coefficients exactly to zero, which is useful when many predictors may be irrelevant, as is likely the case here. However, since this is a predictive problem in which all the predictors are readily available, a sparse solution is not required; thus, ridge regression is also an appropriate option. 
 
-**Standardization:** All predictor variables will be standardized prior to model fitting (the R pacakge we will use, glmnet, does this by default).  
+**Standardization:** All predictor variables will be standardized prior to model fitting (the R package we will use, glmnet, does this by default).  
 
 **Training and testing data**: The dataset will be split into training (75%) and test (25%) sets, with proportional representation of all six forest sites in both sets. 
 
-**Selecting $\lambda$**: The tuning parameter $\lambda$, which controls the degree of shrinkage, will be selected using k-fold cross-validation on the training set. We will select the value of $\lambda$ that minimizes the cross-validated mean squared error. 
+**Selecting $\lambda$**: The tuning parameter $\lambda$ will be selected using k-fold cross-validation on the training set. We will choose the value of $\lambda$ that minimizes the cross-validated mean squared error. 
 
-**Model diagnostics:** We will use a residual plot to assess whether the linear model is appropriate (i.e., no systematic or curvilinear trends in the residuals) and to check for homoskedasticity (i.e., constant variance of the residuals across the fitted values). We will also use a Q-Q plot to assess whether the residuals approximately follow a normal distribution. If there is evidence of heteroskedasticity, we will consider transforming the response variable.
+**Model diagnostics:** Residual plots will be used to assess whether the linear models are appropriate (i.e., no systematic or curvilinear trends) and to check for homoskedasticity (i.e., constant variance across the fitted values). A Q-Q plot will be used to assess whether the residuals approximately follow a normal distribution. If there is evidence of heteroskedasticity, we will consider transforming the response variable.
 
-**Final model evaluation:** Final model performance will be evaluated on the held-out test set using mean squared error and $R^2$. 
+**Final model evaluation and selection:** Final LASSO and ridge model performance will be evaluated on the held-out test set using root mean squared error (RMSE) and $R^2$. We will select the model (LASSO or ridge) that performs the best based on these criteria. 
 
 \newpage
 
@@ -74,7 +74,7 @@ Brown, J.K. (1974). *Handbook for inventorying downed woody material.* General T
   
 van Wagtendonk, J.W., Benedict, J.M., & Sydoriak, W.M. (1996). Physical properties of woody fuel particles of Sierra Nevada conifers. *International Journal of Wildland Fire*, 6(3), 117–123. https://doi.org/10.1071/WF9960117
   
-van Wagtendonk, J.W., Benedict, J.M. & Sydoriak, W.M. (1998). Fuel bed characteristics of Sierra Nevada conifers. *Western Journal of Applied Forestry*, 13(3), 73–84. https://doi.org/10.1093/wjaf/13.3.73
+van Wagtendonk, J.W., Benedict, J.M., & Sydoriak, W.M. (1998). Fuel bed characteristics of Sierra Nevada conifers. *Western Journal of Applied Forestry*, 13(3), 73–84. https://doi.org/10.1093/wjaf/13.3.73
 
 \newpage
 
