@@ -1,0 +1,14 @@
+
+## Data and Packages
+```{r}
+# packages
+library(tidyverse)
+library(tidymodels)
+library(probably)
+```
+
+
+```{r}
+# data
+fuels_data <- readr::read_csv("fuels_data.csv")
+```
