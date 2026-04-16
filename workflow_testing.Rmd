@@ -1,23 +1,23 @@
 
 ```{r}
-library(dplyr)
 library(readr)
 library(glmnet)
+library(grpreg)
 library(rsample)
 library(ggplot2)
 ```
 
 ```{r}
-plot_data <- read_csv("fuels_data.csv", show_col_types = FALSE)
-head(plot_data)
+fuels_data <- read_csv("fuels_data.csv", col_types = cols(site = col_factor()))
+head(fuels_data)
 ```
  
 ```{r}
 ## training and testing data
 set.seed(230)
-split_data <- initial_split(plot_data, prop = 0.75, strata = site)
-train_data <- training(split_data) %>% dplyr::select(-c(plot))
-test_data <- testing(split_data) %>% dplyr::select(-c(plot))
+split_data <- initial_split(fuels_data, prop = 0.75, strata = site)
+train_data <- training(split_data)
+test_data <- testing(split_data)
 
 # create model matrices 
 x_train = model.matrix(fuel_load_Mg_ha ~ ., data = train_data)[,-1]
@@ -28,31 +28,34 @@ y_test = test_data$fuel_load_Mg_ha
 ```
 
 ```{r}
-cv_fuels = cv.glmnet(x = x_train, y = y_train, alpha = 0, type.measure = "mse", standardize = TRUE)
-coef_lasso <- coef(cv_fuels, s = "lambda.min")
-y_pred <- as.numeric(predict(cv_fuels, newx = x_test, s = "lambda.min"))
+# ridge regression with cross-validation 
+cv_ridge = cv.glmnet(x = x_train, y = y_train, alpha = 0, type.measure = "mse", standardize = TRUE)
+ridge_ceofs <- coef(cv_ridge, s = "lambda.min")
 
-## mean squared error
-rmse <- sqrt(mean((y_test - y_pred)^2))
+# test and train set predictions 
+y_hat_train <- as.numeric(predict(cv_ridge, newx = x_train, s = "lambda.min"))
+y_hat_test <- as.numeric(predict(cv_ridge, newx = x_test, s = "lambda.min"))
+```
+
+```{r}
+# test-set performance 
+rmse <- sqrt(mean((y_test - y_hat_test)^2))
 rmse
 
-rss <- sum((y_test - y_pred)^2)
+rss <- sum((y_test - y_hat_test)^2)
 tss <- sum((y_test - mean(y_test))^2)
 r2 <- (1-(rss/tss))
 r2
 ```
 
 ```{r}
-y_train_pred <- predict(cv_fuels, newx = x_train, s = "lambda.min")
-train_residuals <- y_train - y_train_pred
-
-res_df <- data.frame(
+plot_df <- data.frame(
   y = y_train,
-  predicted = as.numeric(y_train_pred),
-  residuals = as.numeric(train_residuals)
+  y_hat = y_hat_train,
+  resid = y_train - y_hat_train
 )
 
-ggplot(res_df, aes(x = predicted, y = residuals)) +
+ggplot(plot_df, aes(x = y_hat, y = resid)) +
   geom_point() +
   geom_hline(yintercept = 0, color = "red") +
   labs(title = "Residual Plot",
@@ -60,14 +63,150 @@ ggplot(res_df, aes(x = predicted, y = residuals)) +
        y = "Residuals") +
   theme_minimal()
 
-ggplot(res_df, aes(x = y, y = predicted)) +
+ggplot(plot_df, aes(sample = resid)) +
+  stat_qq() +
+  stat_qq_line(color = "red") +
+  labs(title = "QQ Plot",
+       x = "Theoretical Quantiles",
+       y = "Sample Quantiles") +
+  theme_minimal()
+```
+
+
+
+```{r}
+## training and testing data
+set.seed(230)
+split_data <- initial_split(fuels_data, prop = 0.75, strata = site)
+train_data <- training(split_data)
+test_data <- testing(split_data)
+
+# create model matrices 
+x_train = model.matrix(fuel_load_Mg_ha ~ ., data = train_data)[,-1]
+y_train = log(train_data$fuel_load_Mg_ha)
+y_train_orig = train_data$fuel_load_Mg_ha
+
+x_test = model.matrix(fuel_load_Mg_ha ~ ., data = test_data)[,-1]
+y_test = log(test_data$fuel_load_Mg_ha)
+y_test_orig = test_data$fuel_load_Mg_ha
+```
+
+```{r}
+# ridge regression with cross-validation 
+cv_ridge = cv.glmnet(x = x_train, y = y_train, alpha = 0, type.measure = "mse", standardize = TRUE)
+ridge_ceofs <- coef(cv_ridge, s = "lambda.min")
+
+# test and train set predictions 
+y_hat_train_log <- as.numeric(predict(cv_ridge, newx = x_train, s = "lambda.min"))
+y_hat_test_log <- as.numeric(predict(cv_ridge, newx = x_test, s = "lambda.min"))
+
+y_hat_train <- exp(y_hat_train_log)
+y_hat_test <- exp(y_hat_test_log)
+```
+
+```{r}
+# test-set performance 
+rmse <- sqrt(mean((y_test_orig - y_hat_test)^2))
+rmse
+
+rss <- sum((y_test_orig - y_hat_test)^2)
+tss <- sum((y_test_orig - mean(y_test_orig))^2)
+r2 <- (1-(rss/tss))
+r2
+```
+
+```{r}
+plot_df <- data.frame(
+  y = y_train,
+  y_hat = y_hat_train_log,
+  resid = y_train - y_hat_train_log
+)
+
+ggplot(plot_df, aes(x = y_hat, y = resid)) +
   geom_point() +
-  geom_abline(intercept = 0, slope = 1, color = "red") + 
-  labs(title = "Fitted Line Plot",
-       x = "y",
-       y = "y_hat") +
-  theme_minimal() + 
-  scale_y_continuous(limits = c(-20, 300)) + 
-  scale_x_continuous(limits = c(-20, 300))
+  geom_hline(yintercept = 0, color = "red") +
+  labs(title = "Residual Plot",
+       x = "Predicted values",
+       y = "Residuals") +
+  theme_minimal()
+
+ggplot(plot_df, aes(sample = resid)) +
+  stat_qq() +
+  stat_qq_line(color = "red") +
+  labs(title = "QQ Plot",
+       x = "Theoretical Quantiles",
+       y = "Sample Quantiles") +
+  theme_minimal()
+```
+
+
+
+
+```{r}
+## training and testing data
+set.seed(230)
+split_data <- initial_split(fuels_data, prop = 0.75, strata = site)
+train_data <- training(split_data)
+test_data <- testing(split_data)
+
+# create model matrices 
+x_train = model.matrix(fuel_load_Mg_ha ~ ., data = train_data)[,-1]
+y_train = train_data$fuel_load_Mg_ha
+
+x_test = model.matrix(fuel_load_Mg_ha ~ ., data = test_data)[,-1]
+y_test = test_data$fuel_load_Mg_ha
+```
+
+```{r}
+group <- c(rep(1,5), 6:ncol(x_train))
+
+# ridge regression with cross-validation 
+cv_lasso <- cv.grpreg(
+  X = x_train,
+  y = y_train,
+  group = group,
+  penalty = "grLasso"
+)
+
+coefs <- coef(cv_lasso, lambda = cv_lasso$lambda.min)
+
+# test and train set predictions 
+y_hat_train <- as.numeric(predict(cv_lasso, X = x_train, lambda = cv_lasso$lambda.min))
+y_hat_test <- as.numeric(predict(cv_lasso, X = x_test, lambda = cv_lasso$lambda.min))
+```
+
+```{r}
+# test-set performance 
+rmse <- sqrt(mean((y_test - y_hat_test)^2))
+rmse
+
+rss <- sum((y_test - y_hat_test)^2)
+tss <- sum((y_test - mean(y_test))^2)
+r2 <- (1-(rss/tss))
+r2
+```
+
+```{r}
+plot_df <- data.frame(
+  y = y_train,
+  y_hat = y_hat_train,
+  resid = y_train - y_hat_train
+)
+
+ggplot(plot_df, aes(x = y_hat, y = resid)) +
+  geom_point() +
+  geom_hline(yintercept = 0, color = "red") +
+  labs(title = "Residual Plot",
+       x = "Predicted values",
+       y = "Residuals") +
+  theme_minimal()
+
+ggplot(plot_df, aes(sample = resid)) +
+  stat_qq() +
+  stat_qq_line(color = "red") +
+  labs(title = "QQ Plot",
+       x = "Theoretical Quantiles",
+       y = "Sample Quantiles") +
+  theme_minimal()
 ```
 
