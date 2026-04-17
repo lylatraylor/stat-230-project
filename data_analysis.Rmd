@@ -108,32 +108,30 @@ fit_model <- function(train_df, test_df, model_type, y_transform) {
     geom_hline(yintercept = 0, color = "grey40", linetype = "dashed") +
     geom_point(alpha = 0.4) +
     geom_smooth(se = FALSE, color = "brown3") + 
-    labs(title = "(a) Residual Plot",
-         x = "Predicted value",
+    labs(x = "Predicted value",
          y = "Residual") +
     theme_minimal() + 
-    theme(panel.grid.minor = element_blank())
+    theme(panel.grid.minor = element_blank(),
+          panel.border = element_rect(color = "black", fill = NA, linewidth = 1.2 ))
   
-  fitted_line_plot <- ggplot(fitted_plot_df, aes(x = y_orig, y = y_hat_orig)) +
+  fitted_plot <- ggplot(fitted_plot_df, aes(x = y_orig, y = y_hat_orig)) +
     geom_point(alpha = 0.4) +
     geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey40") + 
-        labs(title = "(b) Fitted Line Plot for Test Set",
-         x = "Measured value",
-         y = "Predicted value") +
+    labs(x = "Measured surface fuel load (Mg/ha)",
+         y = "Predicted surface fuel load (Mg/ha)") +
     theme_minimal() + 
-    theme(panel.grid.minor = element_blank()) + 
-    scale_y_continuous(limits = c(-20, 300)) + 
-    scale_x_continuous(limits = c(-20, 300))
-  
-  diag_plots <- resid_plot + fitted_line_plot
+    theme(panel.grid.minor = element_blank(),
+          panel.border = element_rect(color = "black", fill = NA, linewidth = 1.2)) + 
+    scale_y_continuous(limits = c(0, 250)) + 
+    scale_x_continuous(limits = c(0, 250))
   
   if(model_type == "ridge") {
     
-    return(list(RMSE = rmse, R2 = r2, diagnostics = diag_plots))
+    return(list(RMSE = rmse, R2 = r2, residual_plot = resid_plot, fitted_line_plot = fitted_plot))
     
   } else if (model_type == "lasso") {
     
-    return(list(RMSE = rmse, R2 = r2, diagnostics = diag_plots, selected_coefs = nonzero_coef_names))
+    return(list(RMSE = rmse, R2 = r2, residual_plot = resid_plot, fitted_line_plot = fitted_plot, selected_coefs = nonzero_coef_names))
     
   }
   
@@ -146,8 +144,8 @@ ridge_none$RMSE
 ridge_none$R2
 
 dpi <- 600
-png(file = "report_figs/ridge_none.png", width = 12*dpi, height = 4*dpi, res = dpi)
-ridge_none$diagnostics
+png(file = "report_figs/ridge_none.png", width = 7.5*dpi, height = 5*dpi, res = dpi)
+ridge_none$residual_plot
 dev.off()
 ```
 
@@ -157,8 +155,8 @@ ridge_sqrt$RMSE
 ridge_sqrt$R2
 
 dpi <- 600
-png(file = "report_figs/ridge_sqrt.png", width = 12*dpi, height = 4*dpi, res = dpi)
-ridge_sqrt$diagnostics
+png(file = "report_figs/ridge_sqrt.png", width = 7.5*dpi, height = 5*dpi, res = dpi)
+ridge_sqrt$residual_plot
 dev.off()
 ```
 
@@ -168,8 +166,8 @@ ridge_log$RMSE
 ridge_log$R2
 
 dpi <- 600
-png(file = "report_figs/ridge_log.png", width = 12*dpi, height = 4*dpi, res = dpi)
-ridge_log$diagnostics
+png(file = "report_figs/ridge_log.png", width = 7.5*dpi, height = 5*dpi, res = dpi)
+ridge_log$residual_plot
 dev.off()
 ```
 
@@ -179,8 +177,8 @@ lasso_none$RMSE
 lasso_none$R2
 
 dpi <- 600
-png(file = "report_figs/lasso_none.png", width = 12*dpi, height = 4*dpi, res = dpi)
-lasso_none$diagnostics
+png(file = "report_figs/lasso_none.png", width = 7.5*dpi, height = 5*dpi, res = dpi)
+lasso_none$residual_plot
 dev.off()
 ```
 
@@ -188,10 +186,16 @@ dev.off()
 lasso_sqrt <- fit_model(train_df = train_data, test_df = test_data, model_type = "lasso", y_transform = "sqrt")
 lasso_sqrt$RMSE
 lasso_sqrt$R2
+lasso_sqrt$selected_coefs
 
 dpi <- 600
-png(file = "report_figs/lasso_sqrt.png", width = 12*dpi, height = 4*dpi, res = dpi)
-lasso_sqrt$diagnostics
+png(file = "report_figs/lasso_sqrt.png", width = 7.5*dpi, height = 5*dpi, res = dpi)
+lasso_sqrt$residual_plot
+dev.off()
+
+dpi <- 600
+png(file = "report_figs/fitted_line.png", width = 6*dpi, height = 4*dpi, res = dpi)
+lasso_sqrt$fitted_line_plot
 dev.off()
 ```
 
@@ -201,7 +205,7 @@ lasso_log$RMSE
 lasso_log$R2
 
 dpi <- 600
-png(file = "report_figs/lasso_log.png", width = 12*dpi, height = 4*dpi, res = dpi)
-lasso_log$diagnostics
+png(file = "report_figs/lasso_log.png", width = 7.5*dpi, height = 5*dpi, res = dpi)
+lasso_log$residual_plot
 dev.off()
 ```
