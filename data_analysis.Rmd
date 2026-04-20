@@ -22,28 +22,14 @@ test_data <- testing(split_data)
 ```
 
 ```{r}
-fit_model <- function(train_df, test_df, model_type, y_transform) {
+fit_model <- function(train_df, test_df, model_type) {
   
   # create model matrices 
   x_train <- model.matrix(fuel_load_Mg_ha ~ ., data = train_df)[,-1]
   x_test <- model.matrix(fuel_load_Mg_ha ~ ., data = test_df)[,-1]
   
-  y_train_orig <- train_df$fuel_load_Mg_ha
-  y_test_orig <- test_df$fuel_load_Mg_ha
-  
-  if(y_transform == "none") {
-    
-    y_train <- train_df$fuel_load_Mg_ha
-    
-  } else if(y_transform == "log") {
-    
-    y_train <- log(train_df$fuel_load_Mg_ha)
-    
-  } else if(y_transform == "sqrt") {
-    
-    y_train <- sqrt(train_df$fuel_load_Mg_ha)
-    
-  }
+  y_train <- train_df$fuel_load_Mg_ha
+  y_test <- test_df$fuel_load_Mg_ha
   
   if(model_type == "ridge") {
     
@@ -51,8 +37,8 @@ fit_model <- function(train_df, test_df, model_type, y_transform) {
     cv_fit <- cv.glmnet(x = x_train, y = y_train, alpha = 0, type.measure = "mse", standardize = TRUE)
     
     # test and train set predictions 
-    y_hat_train_1 <- as.numeric(predict(cv_fit, newx = x_train, s = "lambda.min"))
-    y_hat_test_1 <- as.numeric(predict(cv_fit, newx = x_test, s = "lambda.min"))
+    y_hat_train <- as.numeric(predict(cv_fit, newx = x_train, s = "lambda.min"))
+    y_hat_test <- as.numeric(predict(cv_fit, newx = x_test, s = "lambda.min"))
     
   } else if (model_type == "lasso") {
 
@@ -63,58 +49,36 @@ fit_model <- function(train_df, test_df, model_type, y_transform) {
     nonzero_coef_names <- setdiff(names(coefs)[coefs != 0], "(Intercept)")
 
     # test and train set predictions 
-    y_hat_train_1 <- as.numeric(predict(cv_fit, X = x_train, lambda = cv_fit$lambda.min))
-    y_hat_test_1 <- as.numeric(predict(cv_fit, X = x_test, lambda = cv_fit$lambda.min))
-    
-  }
-
-  if(y_transform == "none") {
-    
-    y_hat_train_2 <- y_hat_train_1
-    y_hat_test_2 <- y_hat_test_1
-    
-  } else if(y_transform == "log") {
-    
-    y_hat_train_2 <- exp(y_hat_train_1)
-    y_hat_test_2 <- exp(y_hat_test_1)
-    
-  } else if(y_transform == "sqrt") {
-    
-    y_hat_train_2 <- y_hat_train_1^2
-    y_hat_test_2 <- y_hat_test_1^2
+    y_hat_train <- as.numeric(predict(cv_fit, X = x_train, lambda = cv_fit$lambda.min))
+    y_hat_test <- as.numeric(predict(cv_fit, X = x_test, lambda = cv_fit$lambda.min))
     
   }
   
-  # test-set performance (always in original units)
-  rmse <- sqrt(mean((y_test_orig - y_hat_test_2)^2))
+  # test-set performance
+  rmse <- sqrt(mean((y_test - y_hat_test)^2))
   
-  rss <- sum((y_test_orig - y_hat_test_2)^2)
-  tss <- sum((y_test_orig - mean(y_test_orig))^2)
+  rss <- sum((y_test - y_hat_test)^2)
+  tss <- sum((y_test - mean(y_test))^2)
   r2 <- (1-(rss/tss))
 
   # diagnostic plots
-  resid_plot_df <- data.frame(
+  plot_df <- data.frame(
     y = y_train,
-    y_hat = y_hat_train_1,
-    resid = y_train - y_hat_train_1
-  )
-  
-  fitted_plot_df <- data.frame(
-    y_orig = y_test_orig,
-    y_hat_orig = y_hat_test_2
+    y_hat = y_hat_train,
+    resid = y_train - y_hat_train
   )
 
-  resid_plot <- ggplot(resid_plot_df, aes(x = y_hat, y = resid)) +
+  resid_plot <- ggplot(plot_df, aes(x = y_hat, y = resid)) +
     geom_hline(yintercept = 0, color = "grey40", linetype = "dashed") +
     geom_point(alpha = 0.4) +
-    geom_smooth(se = FALSE, color = "brown3") + 
+    geom_smooth(method = "loess", span = 1, se = FALSE, color = "brown3") + 
     labs(x = "Predicted value",
          y = "Residual") +
     theme_minimal() + 
     theme(panel.grid.minor = element_blank(),
           panel.border = element_rect(color = "black", fill = NA, linewidth = 1.2 ))
   
-  fitted_plot <- ggplot(fitted_plot_df, aes(x = y_orig, y = y_hat_orig)) +
+  fitted_plot <- ggplot(plot_df, aes(x = y, y = y_hat)) +
     geom_point(alpha = 0.4) +
     geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey40") + 
     labs(x = "Measured surface fuel load (Mg/ha)",
@@ -122,8 +86,8 @@ fit_model <- function(train_df, test_df, model_type, y_transform) {
     theme_minimal() + 
     theme(panel.grid.minor = element_blank(),
           panel.border = element_rect(color = "black", fill = NA, linewidth = 1.2)) + 
-    scale_y_continuous(limits = c(0, 250)) + 
-    scale_x_continuous(limits = c(0, 250))
+    scale_y_continuous(limits = c(0, 300)) + 
+    scale_x_continuous(limits = c(0, 300))
   
   if(model_type == "ridge") {
     
@@ -139,73 +103,30 @@ fit_model <- function(train_df, test_df, model_type, y_transform) {
 ```
 
 ```{r}
-ridge_none <- fit_model(train_df = train_data, test_df = test_data, model_type = "ridge", y_transform = "none")
-ridge_none$RMSE
-ridge_none$R2
+ridge <- fit_model(train_df = train_data, test_df = test_data, model_type = "ridge")
+ridge$RMSE
+ridge$R2
 
 dpi <- 600
-png(file = "report_figs/ridge_none.png", width = 7.5*dpi, height = 5*dpi, res = dpi)
-ridge_none$residual_plot
+png(file = "report_figs/ridge_resid.png", width = 7.5*dpi, height = 5*dpi, res = dpi)
+ridge$residual_plot
+dev.off()
+
+dpi <- 600
+png(file = "report_figs/ridge_fitted_line.png", width = 6*dpi, height = 4*dpi, res = dpi)
+ridge$fitted_line_plot
 dev.off()
 ```
 
 ```{r}
-ridge_sqrt <- fit_model(train_df = train_data, test_df = test_data, model_type = "ridge", y_transform = "sqrt")
-ridge_sqrt$RMSE
-ridge_sqrt$R2
+lasso <- fit_model(train_df = train_data, test_df = test_data, model_type = "lasso")
+lasso$RMSE
+lasso$R2
+lasso$selected_coefs
 
 dpi <- 600
-png(file = "report_figs/ridge_sqrt.png", width = 7.5*dpi, height = 5*dpi, res = dpi)
-ridge_sqrt$residual_plot
+png(file = "report_figs/lasso_resid.png", width = 7.5*dpi, height = 5*dpi, res = dpi)
+lasso$residual_plot
 dev.off()
 ```
 
-```{r}
-ridge_log <- fit_model(train_df = train_data, test_df = test_data, model_type = "ridge", y_transform = "log")
-ridge_log$RMSE
-ridge_log$R2
-
-dpi <- 600
-png(file = "report_figs/ridge_log.png", width = 7.5*dpi, height = 5*dpi, res = dpi)
-ridge_log$residual_plot
-dev.off()
-```
-
-```{r}
-lasso_none <- fit_model(train_df = train_data, test_df = test_data, model_type = "lasso", y_transform = "none")
-lasso_none$RMSE
-lasso_none$R2
-
-dpi <- 600
-png(file = "report_figs/lasso_none.png", width = 7.5*dpi, height = 5*dpi, res = dpi)
-lasso_none$residual_plot
-dev.off()
-```
-
-```{r}
-lasso_sqrt <- fit_model(train_df = train_data, test_df = test_data, model_type = "lasso", y_transform = "sqrt")
-lasso_sqrt$RMSE
-lasso_sqrt$R2
-lasso_sqrt$selected_coefs
-
-dpi <- 600
-png(file = "report_figs/lasso_sqrt.png", width = 7.5*dpi, height = 5*dpi, res = dpi)
-lasso_sqrt$residual_plot
-dev.off()
-
-dpi <- 600
-png(file = "report_figs/fitted_line.png", width = 6*dpi, height = 4*dpi, res = dpi)
-lasso_sqrt$fitted_line_plot
-dev.off()
-```
-
-```{r}
-lasso_log <- fit_model(train_df = train_data, test_df = test_data, model_type = "lasso", y_transform = "log")
-lasso_log$RMSE
-lasso_log$R2
-
-dpi <- 600
-png(file = "report_figs/lasso_log.png", width = 7.5*dpi, height = 5*dpi, res = dpi)
-lasso_log$residual_plot
-dev.off()
-```

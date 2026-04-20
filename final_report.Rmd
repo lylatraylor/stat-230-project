@@ -7,7 +7,7 @@ output:
 ---
 
 ```{r, include=FALSE}
-library(tinytex)
+#library(tinytex)
 #library(latex2exp)
 ```
 
@@ -45,14 +45,16 @@ For this project, the response variable was total surface fuel load in megagrams
 
 ## Final regression model 
 
-Our final model was a LASSO (Least Absolute Shrinkage and Selection Operator) regression. LASSO was appropriate because it performs variable selection by shrinking some coefficients exactly to zero, which is useful when many predictors may be irrelevant, as was the case here. Specifically, we fit a group LASSO, which selects or removes entire groups of variables rather than individual predictors. This ensured that site, a six-level factor variable represented via five dummy variables, was selected or removed as a group. None of the numeric LiDAR variables were explicitly grouped together. A square root transformation of the response variable was necessary to meet the Gauss-Markov model assumption of error terms with mean 0 and variance $\sigma^2$ (residual plots for all models, including the final model, are provided in the additional work section).
+Our final model was a ridge regression. Because this was a predictive problem in which all the predictors are readily available to managers using terrestrial LiDAR scans processed by IntELiMon, a sparse solution was not required; thus, ridge regression was an appropriate choice. 
 
-Prior to model fitting, the dataset was split into training (75%) and test (25%) sets, with proportional representation of all six forest sites in both sets. The tuning parameter $\lambda$ was selected based on the value that minimized the mean squared error using 10-fold cross-validation on the training set. Out of the models that met assumptions, the final model was selected because it performed best in terms of root mean squared error (RMSE) and $R^2$ evaluated on the held-out test set.
+Although ridge regression does not rely on the stricter Gauss-Markov or Normal Linear Model assumptions, the base-line assumption of linearity must still be met. We assessed this by visually inspecting the residual plot for curvilinear trends and found no evidence of concerning model misspecification (Fig. 2, Additional work section). 
 
-For the final model, RMSE was 36.9 Mg/ha and $R^2$ was 0.51, indicating a moderately good model fit. The fitted line plot (also produced from the held-out test set) demonstrates the moderately good model fit, but also shows some underprediction of large values (Fig. 1). There were 11 selected (i.e., non-zero) coefficients in the final model, including site, the count of points in the 0-3 m high voxelized point clouds with tree stems and shrubs removed, five summary metrics on the entire voxelized point cloud, and four summary metrics on points classified as shrubs. 
+Prior to model fitting, the data were split into training (75%) and test (25%) sets, with proportional representation of all six forest sites in both sets. The tuning parameter $\lambda$ was selected based on the value that minimized the mean squared error using 10-fold cross-validation on the training set. The ridge model was ultimately selected because it achieved the best predictive performance, as measured by root mean squared error (RMSE) and $R^2$, on the held-out test set.
+
+For the final model, RMSE was 38.7 Mg/ha and $R^2$ was 0.46, indicating a moderate level of predictive performance. The fitted line plot (also based on the held-out test set) reflects this overall agreement, but also shows a tendency to overpredict smaller values and underpredict larger values (Fig. 1).
 
 ```{r fig:myimage1, echo=FALSE, fig.cap="Fitted line plot for held-out test set", out.width="75%", fig.align="center"}
-knitr::include_graphics("report_figs/fitted_line.png")
+knitr::include_graphics("report_figs/ridge_fitted_line.png")
 ```
 
 ## Discussion
@@ -63,61 +65,28 @@ Fire behavior models typically rely on a standardized set of 53 discrete surface
 
 In contrast, smoke production models use surface fuel load as a direct quantitative input. Consequently, these models require more accurate estimates of fuel load. In this context, the predictive performance of our model is likely insufficient to support reliable smoke production estimates.
 
-*STILL NEED TO WRITE/INCLUDE LIMITATIONS:*
+It is possible that the predictability of surface fuel load could be improved if InteELiMon included additional summary metrics more specifically aimed at describing the forest floor. For example, surface rugosity (i.e., surface roughness) has been proposed as a potentially useful predictor. 
 
-* hard for TLS to pick up on surface fuels (which are small and on the ground)
-
-* could improve with really intentional metrics aimed at the surface (e.g., surface rugosity)
+A limitation of this project is that it only includes 164 plots from six sites. Thus, our model could not reasonably be used to predict surface fuel loads outside of these specific sites. To best serve forest managers across California, it would be necessary to build predictive models for all major forested subregions of the Sierra Nevada. 
 
 ## Conclusion 
 
-Forest managers are responding to the ongoing wildfire crisis across western North America by assessing wildfire risk and implementing fuel reduction treatments at increasingly large scales. As a result, the ability to efficiently estimate surface fuel loads across large spatial scales is more important than ever. Our results highlight the promising potential of predicting surface fuel load using metrics derived from terrestrial LiDAR scans via the IntELiMon workflow, particularly in the context of fire behavior modeling, where the primary objective is to assign a reasonable discrete fuel model.
+Forest managers are responding to the ongoing wildfire crisis across western North America by assessing wildfire risk and implementing fuel reduction treatments at increasingly large scales. As a result, the ability to efficiently estimate surface fuel loads across large spatial scales is more important than ever. Our results demonstrate the potential of predicting surface fuel load using metrics derived from terrestrial LiDAR scans via the IntELiMon workflow, particularly in the context of fire behavior modeling, where the primary objective is to assign a reasonable discrete fuel model. This project serves as an initial proof of concept that could potentially be improved on by including LiDAR-derived metrics more specifically aimed at describing the forest floor (such as surface rugosity) and covering all major forested subregions of the Sierra Nevada. 
 
 \newpage
 
 ## Additional work 
 
-We fit both LASSO and ridge regression models. Since this was a predictive problem in which all the predictors are readily available to managers using terrestrial LiDAR scans processed by IntELiMon, a sparse solution was not required; thus, ridge regression was also an appropriate option. For both LASSO and ridge, we assessed model assumptions under three different transformation (none, log, and square root) of the response variable. We visually inspected the residual plots to (1) assess whether the linear models were appropriate (i.e., no curvilinear trends of the average residuals) and (2) check for constant variance across the fitted values. The LASSO model with a square root transformation of the response variable had the best residual plot, the lowest RMSE, and the highest $R^2$, making is the best model choice. 
+We fit both ridge and LASSO (Least Absolute Shrinkage and Selection Operator) regression models. LASSO was also an appropriate option because it performs variable selection by shrinking some coefficients exactly to zero, which can be useful when many predictors may be irrelevant, as was the case here. Specifically, we fit a group LASSO, which selects or removes entire groups of variables rather than individual predictors. This ensured that site, a six-level factor variable represented via five dummy variables, was selected or removed as a group. None of the numeric LiDAR variables were explicitly grouped together. 
 
-\begin{table}[h!]
-\centering
-\begin{tabular}{lccc}
-\hline
-model type & response transformation & RMSE (Mg/ha) & $R^2$ \\
-\hline
-ridge & none & 38.7 & 0.46 \\
-ridge & log & 40.8 & 0.40 \\
-ridge & sqrt & 38.2 & 0.48 \\
-lasso & none & 39.1 & 0.45 \\
-lasso & log & 39.7 & 0.44 \\
-lasso & sqrt & 37.1 & 0.51 \\
-\hline
-\end{tabular}
-\caption{Fit statistics of all models.}
-\end{table}
+As with the ridge regression, we visually inspected the residual plot of the LASSO to assess whether the linear model was appropriate (i.e., no curvilinear trends of the average residuals; Fig. 3). There were 11 selected (i.e., non-zero) coefficients in the LASSO model, including site, the count of points in the 0-3 m high voxelized point clouds with tree stems and shrubs removed, five summary metrics on the entire voxelized point cloud, and four summary metrics on points classified as shrubs. The LASSO model had a slightly higher RMSE (39.4 vs. 38.7 Mg/ha) and a slightly lower $R^2$ (0.44 vs. 0.46) than the ridge model. 
 
-```{r fig:myimage2, echo=FALSE, fig.cap="Residual plot for ridge regression with no transformation of the response variable", out.width="75%", fig.align="center"}
-knitr::include_graphics("report_figs/ridge_none.png")
+```{r fig:myimage2, echo=FALSE, fig.cap="Residual plot for ridge regression", out.width="75%", fig.align="center"}
+knitr::include_graphics("report_figs/ridge_resid.png")
 ```
 
-```{r fig:myimage3, echo=FALSE, fig.cap="Residual plot for ridge regression with a log transformation of the response variable", out.width="75%", fig.align="center"}
-knitr::include_graphics("report_figs/ridge_log.png")
-```
-
-```{r fig:myimage4, echo=FALSE, fig.cap="Residual plot for ridge regression with a square root transformation of the response variable", out.width="75%", fig.align="center"}
-knitr::include_graphics("report_figs/ridge_sqrt.png")
-```
-
-```{r fig:myimage5, echo=FALSE, fig.cap="Residual plot for LASSO regression with no transformation of the response variable", out.width="75%", fig.align="center"}
-knitr::include_graphics("report_figs/lasso_none.png")
-```
-
-```{r fig:myimage6, echo=FALSE, fig.cap="Residual plot for LASSO regression with a log transformation of the response variable", out.width="75%", fig.align="center"}
-knitr::include_graphics("report_figs/lasso_log.png")
-```
-
-```{r fig:myimage7, echo=FALSE, fig.cap="Residual plot for LASSO regression with a square root transformation of the response variable", out.width="75%", fig.align="center"}
-knitr::include_graphics("report_figs/lasso_sqrt.png")
+```{r fig:myimage3, echo=FALSE, fig.cap="Residual plot for LASSO regression", out.width="75%", fig.align="center"}
+knitr::include_graphics("report_figs/lasso_resid.png")
 ```
 
 \newpage
@@ -134,10 +103,10 @@ Brown, J.K. (1974). *Handbook for inventorying downed woody material.* General T
 
 ## Appendix
 
-```{r fig:myimage8, echo=FALSE, fig.cap="Terrestrial LiDAR point cloud, entire plot", out.width="75%", fig.align="center"}
+```{r fig:myimage4, echo=FALSE, fig.cap="Terrestrial LiDAR point cloud, entire plot", out.width="75%", fig.align="center"}
 knitr::include_graphics("report_figs/tls_scan_1.png")
 ```
 
-```{r fig:myimage9, echo=FALSE, fig.cap="Terrestrial LiDAR point cloud, zoomed in", out.width="75%", fig.align="center"}
+```{r fig:myimage5, echo=FALSE, fig.cap="Terrestrial LiDAR point cloud, zoomed in", out.width="75%", fig.align="center"}
 knitr::include_graphics("report_figs/tls_scan_2.png")
 ```
