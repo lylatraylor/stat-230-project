@@ -5,7 +5,9 @@ library(glmnet)
 library(grpreg)
 library(rsample)
 library(ggplot2)
-library(patchwork)
+library(dplyr)
+library(tidyr)
+library(tibble)
 ```
 
 ```{r}
@@ -52,6 +54,37 @@ fit_model <- function(train_df, test_df, model_type) {
     y_hat_train <- as.numeric(predict(cv_fit, X = x_train, lambda = cv_fit$lambda.min))
     y_hat_test <- as.numeric(predict(cv_fit, X = x_test, lambda = cv_fit$lambda.min))
     
+    
+    # coefficient path plot 
+    fit <- cv_fit$fit
+    beta_matrix <- as.matrix(coef(fit))
+    
+    coef_path_df <- as.data.frame(beta_matrix) %>%
+      rownames_to_column("term")
+
+    colnames(coef_path_df)[-1] <- fit$lambda
+    
+    coef_path_df_long <- coef_path_df %>%
+      pivot_longer(cols = -term,
+                   names_to = "lambda",
+                   values_to = "estimate") %>%
+      mutate(lambda = as.numeric(lambda)) %>%
+      filter(term != "(Intercept)",
+             lambda <= 10)
+    
+    coef_plot <- ggplot(coef_path_df_long, aes(x = lambda, y = estimate, group = term, color = term)) +
+      geom_line(linewidth = 0.5) +
+      geom_vline(xintercept = cv_fit$lambda.min, linetype = "dashed", linewidth = 0.8) +
+      theme_minimal() +
+      theme(legend.position = "none",
+            panel.grid.minor = element_blank(),
+            panel.border = element_rect(color = "black", fill = NA, linewidth = 1.2),
+            axis.title = element_text(size = 14),
+            axis.text = element_text(size = 12)) +
+      labs(x = expression(lambda),
+           y = "Coefficient") + 
+      scale_x_continuous(limits = c(0, 10), breaks = 0:10)
+    
   }
   
   # test-set performance
@@ -76,7 +109,9 @@ fit_model <- function(train_df, test_df, model_type) {
          y = "Residual") +
     theme_minimal() + 
     theme(panel.grid.minor = element_blank(),
-          panel.border = element_rect(color = "black", fill = NA, linewidth = 1.2 ))
+          panel.border = element_rect(color = "black", fill = NA, linewidth = 1.2),
+          axis.title = element_text(size = 14),
+          axis.text = element_text(size = 12))
   
   fitted_plot <- ggplot(plot_df, aes(x = y, y = y_hat)) +
     geom_point(alpha = 0.4) +
@@ -85,7 +120,9 @@ fit_model <- function(train_df, test_df, model_type) {
          y = "Predicted surface fuel load (Mg/ha)") +
     theme_minimal() + 
     theme(panel.grid.minor = element_blank(),
-          panel.border = element_rect(color = "black", fill = NA, linewidth = 1.2)) + 
+          panel.border = element_rect(color = "black", fill = NA, linewidth = 1.2),
+          axis.title = element_text(size = 14),
+          axis.text = element_text(size = 12)) + 
     scale_y_continuous(limits = c(0, 300)) + 
     scale_x_continuous(limits = c(0, 300))
   
@@ -95,7 +132,8 @@ fit_model <- function(train_df, test_df, model_type) {
     
   } else if (model_type == "lasso") {
     
-    return(list(RMSE = rmse, R2 = r2, residual_plot = resid_plot, fitted_line_plot = fitted_plot, selected_coefs = nonzero_coef_names))
+    return(list(RMSE = rmse, R2 = r2, residual_plot = resid_plot, fitted_line_plot = fitted_plot, 
+                coef_path_plot = coef_plot, selected_coefs = nonzero_coef_names))
     
   }
   
@@ -107,15 +145,13 @@ ridge <- fit_model(train_df = train_data, test_df = test_data, model_type = "rid
 ridge$RMSE
 ridge$R2
 
-dpi <- 600
-png(file = "report_figs/ridge_resid.png", width = 7.5*dpi, height = 5*dpi, res = dpi)
+#png(file = "report_figs/ridge_resid.png", width = 7.5*600, height = 5*600, res = 600)
 ridge$residual_plot
-dev.off()
+#dev.off()
 
-dpi <- 600
-png(file = "report_figs/ridge_fitted_line.png", width = 6*dpi, height = 4*dpi, res = dpi)
+#png(file = "report_figs/ridge_fitted_line.png", width = 6*600, height = 4*600, res = 600)
 ridge$fitted_line_plot
-dev.off()
+#dev.off()
 ```
 
 ```{r}
@@ -124,9 +160,12 @@ lasso$RMSE
 lasso$R2
 lasso$selected_coefs
 
-dpi <- 600
-png(file = "report_figs/lasso_resid.png", width = 7.5*dpi, height = 5*dpi, res = dpi)
+#png(file = "report_figs/lasso_resid.png", width = 7.5*600, height = 5*600, res = 600)
 lasso$residual_plot
-dev.off()
+#dev.off()
+
+#png(file = "report_figs/lasso_coefs.png", width = 7.5*600, height = 5*600, res = 600)
+lasso$coef_path_plot
+#dev.off()
 ```
 

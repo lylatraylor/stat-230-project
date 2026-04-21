@@ -6,11 +6,6 @@ output:
   pdf_document
 ---
 
-```{r, include=FALSE}
-#library(tinytex)
-#library(latex2exp)
-```
-
 ## Introduction 
 
 Surface fuels (dead woody material on the forest floor, including fallen twigs, branches, and logs) are a critical forest feature to measure and monitor because they are a primary driver of wildfire behavior. Forest managers use estimates of surface fuels load (weight of surface fuels per unit area) to model potential wildfire behavior, estimate smoke production from prescribed burns, and plan fuel reduction treatments to mitigate wildfire risk. Surface fuels are highly variable across time and space and, therefore, must be measured frequently at a high sampling intensity. However, doing so is extremely labor-intensive using current standard field-based methods.
@@ -39,7 +34,7 @@ all sites & 164 \\
 \caption{Number of observations across sites.}
 \end{table}
 
-At each plot, a terrestrial LiDAR scan was taken at plot center. All scans were uploaded to and processed by IntELiMon (Interagency Ecosystem LiDAR Monitoring program maintained by the US Geological Survey's Earth Resources Observation and Science Center). The output from IntELiMon is a large set of plot-level summary metrics derived from the LiDAR scans. Example metrics include: (1) fine_l1_cnt (count of points in the 0-3 meter high voxelized point clouds with tree stems and shrubs removed), (2) TBA (total basal area of all detected overstory trees calculated from classified stem points in the point cloud), and (3) shrubs_l1_cnt (count of points in the Shrub classified voxelized point cloud). surface fuels were also directly measured at each plot using line-intercept transects (the current standard field-based method; Brown 1974). 
+At each plot, a terrestrial LiDAR scan was taken at plot center. All scans were uploaded to and processed by IntELiMon (Interagency Ecosystem LiDAR Monitoring program maintained by the US Geological Survey's Earth Resources Observation and Science Center). The output from IntELiMon is a large set of plot-level summary metrics derived from the LiDAR scans. Example metrics include: (1) fine_l1_cnt (count of points in the 0-3 meter high voxelized point clouds with tree stems and shrubs removed), (2) TBA (total basal area of all detected overstory trees calculated from classified stem points in the point cloud), and (3) shrubs_l1_cnt (count of points in the Shrub classified voxelized point cloud). Surface fuels were also directly measured at each plot using line-intercept transects (the current standard field-based method; Brown 1974). 
 
 For this project, the response variable was total surface fuel load in megagrams per hectare (Mg/ha) calculated from the line-intercept transect data. The response variable is continuous, ranging from 0.89 to 299.85. The predictor variables consisted of site (a factor variable with six levels) and 74 summary metrics derived by IntELiMON from the terrestrial LiDAR scans (all of which are numeric). 
 
@@ -47,7 +42,7 @@ For this project, the response variable was total surface fuel load in megagrams
 
 Our final model was a ridge regression. Because this was a predictive problem in which all the predictors are readily available to managers using terrestrial LiDAR scans processed by IntELiMon, a sparse solution was not required; thus, ridge regression was an appropriate choice. 
 
-Although ridge regression does not rely on the stricter Gauss-Markov or Normal Linear Model assumptions, the base-line assumption of linearity must still be met. We assessed this by visually inspecting the residual plot for curvilinear trends and found no evidence of concerning model misspecification (Fig. 2, Additional work section). 
+Although ridge regression does not rely on the Gauss-Markov or Normal Linear Model assumptions, the baseline assumption of linearity must still be met. We assessed this by visually inspecting the residual plot for curvilinear trends and found no evidence of concerning model misspecification (Fig. 2, Additional work section). 
 
 Prior to model fitting, the data were split into training (75%) and test (25%) sets, with proportional representation of all six forest sites in both sets. The tuning parameter $\lambda$ was selected based on the value that minimized the mean squared error using 10-fold cross-validation on the training set. The ridge model was ultimately selected because it achieved the best predictive performance, as measured by root mean squared error (RMSE) and $R^2$, on the held-out test set.
 
@@ -65,28 +60,38 @@ Fire behavior models typically rely on a standardized set of 53 discrete surface
 
 In contrast, smoke production models use surface fuel load as a direct quantitative input. Consequently, these models require more accurate estimates of fuel load. In this context, the predictive performance of our model is likely insufficient to support reliable smoke production estimates.
 
-It is possible that the predictability of surface fuel load could be improved if InteELiMon included additional summary metrics more specifically aimed at describing the forest floor. For example, surface rugosity (i.e., surface roughness) has been proposed as a potentially useful predictor. 
+The model exhibits bias at the extremes, tending to overpredict low fuel loads and underpredict high fuel loads. The underprediction of high surface fuel loads is particularly concerning, as it could lead to underestimation of wildfire risk and insufficient management response.
 
-A limitation of this project is that it only includes 164 plots from six sites. Thus, our model could not reasonably be used to predict surface fuel loads outside of these specific sites. To best serve forest managers across California, it would be necessary to build predictive models for all major forested subregions of the Sierra Nevada. 
+Predictive performance may be improved by incorporating LiDAR-derived metrics that more directly capture forest floor structure. For example, surface rugosity (i.e., surface roughness) has been proposed as a potentially informative predictor of surface fuel characteristics. Enhancing the set of metrics produced by IntELiMon to better represent forest floor complexity could improve model performance.
+
+A key limitation of this project is the relatively small and geographically limited dataset (164 plots across six sites). The model would likely not generalize well beyond these specific sites. To support broader application across California, it would be necessary to develop models for all major ecological subregions of the Sierra Nevada.
 
 ## Conclusion 
 
-Forest managers are responding to the ongoing wildfire crisis across western North America by assessing wildfire risk and implementing fuel reduction treatments at increasingly large scales. As a result, the ability to efficiently estimate surface fuel loads across large spatial scales is more important than ever. Our results demonstrate the potential of predicting surface fuel load using metrics derived from terrestrial LiDAR scans via the IntELiMon workflow, particularly in the context of fire behavior modeling, where the primary objective is to assign a reasonable discrete fuel model. This project serves as an initial proof of concept that could potentially be improved on by including LiDAR-derived metrics more specifically aimed at describing the forest floor (such as surface rugosity) and covering all major forested subregions of the Sierra Nevada. 
+Forest managers are responding to the ongoing wildfire crisis across western North America by assessing wildfire risk and implementing fuel reduction treatments at increasingly large scales. Consequently, the ability to efficiently estimate surface fuel loads across large spatial scales is becoming increasingly important. Our results demonstrate the potential of predicting surface fuel load using metrics derived from terrestrial LiDAR scans via the IntELiMon workflow, particularly in the context of fire behavior modeling, where the primary objective is to assign a reasonable discrete fuel model. This project provides an initial proof of concept that could potentially be improved by incorporating LiDAR-derived metrics more specifically targeted at forest floor structure (e.g., surface rugosity) and by expanding the dataset to include all major ecological subregions of the Sierra Nevada.
 
 \newpage
 
 ## Additional work 
 
-We fit both ridge and LASSO (Least Absolute Shrinkage and Selection Operator) regression models. LASSO was also an appropriate option because it performs variable selection by shrinking some coefficients exactly to zero, which can be useful when many predictors may be irrelevant, as was the case here. Specifically, we fit a group LASSO, which selects or removes entire groups of variables rather than individual predictors. This ensured that site, a six-level factor variable represented via five dummy variables, was selected or removed as a group. None of the numeric LiDAR variables were explicitly grouped together. 
+We fit both ridge and LASSO (Least Absolute Shrinkage and Selection Operator) regression models. LASSO is a reasonable alternative in this setting because it performs variable selection by shrinking some coefficients exactly to zero, which can be useful when many predictors may be irrelevant, as was likely the case here. Specifically, we fit a group LASSO, which selects or removes entire groups of variables rather than individual predictors. This ensured that site, a six-level factor variable represented via five dummy variables, was selected or removed as a group. None of the numeric LiDAR variables were explicitly grouped together. 
 
-As with the ridge regression, we visually inspected the residual plot of the LASSO to assess whether the linear model was appropriate (i.e., no curvilinear trends of the average residuals; Fig. 3). There were 11 selected (i.e., non-zero) coefficients in the LASSO model, including site, the count of points in the 0-3 m high voxelized point clouds with tree stems and shrubs removed, five summary metrics on the entire voxelized point cloud, and four summary metrics on points classified as shrubs. The LASSO model had a slightly higher RMSE (39.4 vs. 38.7 Mg/ha) and a slightly lower $R^2$ (0.44 vs. 0.46) than the ridge model. 
+As with the ridge regression, we assessed the adequacy of the linear model by visually inspecting the residual plot for curvilinear trends. Once again, we did not find concerning evidence of model misspecification (Fig. 3).
 
-```{r fig:myimage2, echo=FALSE, fig.cap="Residual plot for ridge regression", out.width="75%", fig.align="center"}
+The LASSO model selected 11 variables (i.e., non-zero coefficients; Fig. 4), including site, the count of points in the 0-3 m high voxelized point clouds with tree stems and shrubs removed, five summary metrics on the entire voxelized point cloud, and four summary metrics on points classified as shrubs. 
+
+In terms of predictive performance, the LASSO model performed slightly worse than the ridge model, with a higher RMSE (39.4 vs. 38.7 Mg/ha) and a lower $R^2$ (0.44 vs. 0.46) on the held-out test set. These results suggest that, while LASSO provides a more interpretable, sparse model, the ridge regression offers better overall predictive accuracy for this application.
+
+```{r fig:myimage2, echo=FALSE, fig.cap="Residual plot for ridge regression.", out.width="75%", fig.align="center"}
 knitr::include_graphics("report_figs/ridge_resid.png")
 ```
 
-```{r fig:myimage3, echo=FALSE, fig.cap="Residual plot for LASSO regression", out.width="75%", fig.align="center"}
+```{r fig:myimage3, echo=FALSE, fig.cap="Residual plot for LASSO regression.", out.width="75%", fig.align="center"}
 knitr::include_graphics("report_figs/lasso_resid.png")
+```
+
+```{r fig:myimage4, echo=FALSE, fig.cap="LASSO coefficient path plot. Dashed line indicates selected lambda value.", out.width="75%", fig.align="center"}
+knitr::include_graphics("report_figs/lasso_coefs.png")
 ```
 
 \newpage
@@ -99,14 +104,18 @@ Brown, J.K. (1974). *Handbook for inventorying downed woody material.* General T
 
 ## Statement of contribution 
 
+Kea Rutherford gathered the necessary data, wrote the code for the LASSO regression, and wrote the first draft of the report. 
+
+Lyla Traylor added the code for the ridge regression, wrote the code for the conformal prediction interval, and edited the report.
+
 \newpage
 
 ## Appendix
 
-```{r fig:myimage4, echo=FALSE, fig.cap="Terrestrial LiDAR point cloud, entire plot", out.width="75%", fig.align="center"}
+```{r fig:myimage5, echo=FALSE, fig.cap="Terrestrial LiDAR point cloud, entire plot", out.width="75%", fig.align="center"}
 knitr::include_graphics("report_figs/tls_scan_1.png")
 ```
 
-```{r fig:myimage5, echo=FALSE, fig.cap="Terrestrial LiDAR point cloud, zoomed in", out.width="75%", fig.align="center"}
+```{r fig:myimage6, echo=FALSE, fig.cap="Terrestrial LiDAR point cloud, zoomed in", out.width="75%", fig.align="center"}
 knitr::include_graphics("report_figs/tls_scan_2.png")
 ```
