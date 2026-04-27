@@ -94,6 +94,14 @@ knitr::include_graphics("report_figs/lasso_resid.png")
 knitr::include_graphics("report_figs/lasso_coefs.png")
 ```
 
+On our final ridge model, we also compute a leave-one-out conformal prediction interval at 90% confidence. This quantifies the predictive uncertainty for each observation in the training set. A traditional confidence interval characterizes the uncertainty around a population parameter such as the mean. A conformal prediction interval is instead constructed to contain the true response value for a new individual observation with a specified probability. It is also distribution-free and thus does not need to assume normality or homoskedasticity of the residuals.
+
+The conformal intervals for our ridge model were quite wide, with a median width of 268.5 Mg/ha and a mean of 300.9 Mg/ha, with some intervals extending nearly 800 Mg/ha at the upper end of the fuel load range. This width reflects the variability in surface fuel load that the model cannot explain. This limits the practical utility of the intervals for precise prediction.
+
+```{r fig:myimage5, echo=FALSE, fig.cap="Fitted line plot with conformal interval", out.width="75%", fig.align="center"}
+knitr::include_graphics("report_figs/ridge_fitted_line_interval.png")
+```
+
 \newpage
 
 ## References 

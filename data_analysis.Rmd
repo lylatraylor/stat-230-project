@@ -224,7 +224,9 @@ ridge$fitted_line_plot
 ```
 
 ```{r}
+#png(file = "report_figs/ridge_fitted_line_interval.png", width = 6*600, height = 4*600, res = 600)
 ridge$fitted_line_plot_intervals
+#dev.off()
 ```
 
 ```{r}
