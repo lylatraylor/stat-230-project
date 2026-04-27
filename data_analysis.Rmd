@@ -42,6 +42,46 @@ fit_model <- function(train_df, test_df, model_type) {
     y_hat_train <- as.numeric(predict(cv_fit, newx = x_train, s = "lambda.min"))
     y_hat_test <- as.numeric(predict(cv_fit, newx = x_test, s = "lambda.min"))
     
+    # conformal interval
+    lambda_min   <- cv_fit$lambda.min
+    n_tr         <- nrow(x_train)
+    p_tr         <- ncol(x_train)
+    X_aug        <- cbind(1, x_train)
+    beta_vec     <- as.numeric(coef(cv_fit, s = "lambda.min"))
+    Resvec       <- as.numeric(y_train - X_aug %*% beta_vec)
+    
+    penalty_mat       <- lambda_min * diag(p_tr + 1)
+    penalty_mat[1, 1] <- 0
+    Gram_inv_aug <- MASS::ginv(t(X_aug) %*% X_aug + penalty_mat)
+    H        <- X_aug %*% Gram_inv_aug %*% t(X_aug)
+    #leverage <- diag(H)
+    resmat   <- diag(n_tr) - H
+    
+    grid.y <- seq(min(y_train) - 200, max(y_train) + 200, by = 0.1)
+    cvr    <- ceiling(0.90 * (n_tr + 1))
+    
+    loo_pred <- matrix(0, n_tr, 2)
+    loo_cov  <- numeric(n_tr)
+    
+    for (i in seq_len(n_tr)) {
+      grid_r <- sapply(grid.y, function(y) {
+        Res <- Resvec + resmat[, i] * (y - y_train[i])
+        rank(abs(Res))[i]
+      })
+      valid_y      <- grid.y[grid_r <= cvr]
+      Cinterval    <- if (length(valid_y) == 0) c(NA, NA) else range(valid_y)
+      loo_pred[i,] <- Cinterval
+      loo_cov[i]   <- if (anyNA(Cinterval)) NA else findInterval(y_train[i], Cinterval)
+    }
+    
+    conformal_intervals_df <- data.frame(
+      y_true  = y_train,
+      lower   = pmax(loo_pred[, 1], 0),   # clip to 0 for plotting
+      upper   = loo_pred[, 2],
+      width   = loo_pred[, 2] - pmax(loo_pred[, 1], 0),
+      covered = loo_cov == 1
+    )
+    
   } else if (model_type == "lasso") {
 
     # lasso regression with cross-validation 
@@ -98,7 +138,10 @@ fit_model <- function(train_df, test_df, model_type) {
   plot_df <- data.frame(
     y = y_train,
     y_hat = y_hat_train,
-    resid = y_train - y_hat_train
+    resid = y_train - y_hat_train,
+    lower   = conformal_intervals_df$lower,
+    upper   = conformal_intervals_df$upper,
+    covered = conformal_intervals_df$covered
   )
 
   resid_plot <- ggplot(plot_df, aes(x = y_hat, y = resid)) +
@@ -126,10 +169,36 @@ fit_model <- function(train_df, test_df, model_type) {
     scale_y_continuous(limits = c(0, 300)) + 
     scale_x_continuous(limits = c(0, 300))
   
+  plot_df_sorted <- plot_df[order(plot_df$y), ]
+  fitted_plot_intervals <- ggplot(plot_df_sorted, aes(x = y)) +
+    geom_ribbon(aes(ymin = lower, ymax = upper), 
+                  fill = 'steelblue', alpha = 0.2) +
+    geom_point(aes(y = y_hat), alpha = 0.4) +
+    geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey40") +
+    labs(x = "Measured surface fuel load (Mg/ha)",
+         y = "Predicted surface fuel load (Mg/ha)",
+         color = NULL) +
+    theme_minimal() +
+    theme(panel.grid.minor = element_blank(),
+          panel.border = element_rect(color = "black", fill = NA, linewidth = 1.2),
+          axis.title = element_text(size = 14),
+          axis.text = element_text(size = 12),
+          legend.position = "top") +
+    scale_y_continuous(limits = c(0, 300), oob = scales::squish) +
+    scale_x_continuous(limits = c(0, 300))
+  
   if(model_type == "ridge") {
     
-    return(list(RMSE = rmse, R2 = r2, residual_plot = resid_plot, fitted_line_plot = fitted_plot))
-    
+    return(list(
+      RMSE = rmse, 
+      R2 = r2, 
+      residual_plot = resid_plot, 
+      fitted_line_plot = fitted_plot, 
+      fitted_line_plot_intervals = fitted_plot_intervals, 
+      conformal_coverage = mean(loo_cov == 1, na.rm = TRUE), 
+      conformal_intervals= conformal_intervals_df
+      ))
+
   } else if (model_type == "lasso") {
     
     return(list(RMSE = rmse, R2 = r2, residual_plot = resid_plot, fitted_line_plot = fitted_plot, 
@@ -155,6 +224,10 @@ ridge$fitted_line_plot
 ```
 
 ```{r}
+ridge$fitted_line_plot_intervals
+```
+
+```{r}
 lasso <- fit_model(train_df = train_data, test_df = test_data, model_type = "lasso")
 lasso$RMSE
 lasso$R2
@@ -168,136 +241,3 @@ lasso$residual_plot
 lasso$coef_path_plot
 #dev.off()
 ```
-
-# Conformal Prediction
-
-```{r}
-
-fit_model_with_conformal <- function(train_df, test_df, model_type) {
-  
-  # create model matrices 
-  x_train <- model.matrix(fuel_load_Mg_ha ~ ., data = train_df)[,-1]
-  x_test <- model.matrix(fuel_load_Mg_ha ~ ., data = test_df)[,-1]
-  
-  y_train <- train_df$fuel_load_Mg_ha
-  y_test <- test_df$fuel_load_Mg_ha
-  
-  if(model_type == "ridge") {
-    
-    # ridge regression with cross-validation 
-    cv_fit <- cv.glmnet(x = x_train, y = y_train, alpha = 0, type.measure = "mse", standardize = TRUE)
-    
-    # test and train set predictions 
-    y_hat_train <- as.numeric(predict(cv_fit, newx = x_train, s = "lambda.min"))
-    y_hat_test <- as.numeric(predict(cv_fit, newx = x_test, s = "lambda.min"))
-  
-    # test-set performance
-    rmse <- sqrt(mean((y_test - y_hat_test)^2))
-    
-    rss <- sum((y_test - y_hat_test)^2)
-    tss <- sum((y_test - mean(y_test))^2)
-    r2 <- (1-(rss/tss))
-    
-    # conformal prediction add-on
-    lambda_min <- cv_fit$lambda.min #fix lambda and accept approx
-    n_tr  <- nrow(x_train)
-    p_tr  <- ncol(x_train)
-    X_aug <- cbind(1, x_train) # add intercept
-    
-    beta_vec <- as.numeric(coef(cv_fit, s = "lambda.min")) # return sparse matrix
-    Resvec   <- as.numeric(y_train - X_aug %*% beta_vec) # residuals manual
-    e_sigma  <- sqrt(sum(Resvec^2) / (n_tr - p_tr - 1)) # residual sd
-    
-    # hat matrix needs intercept-augmented gram
-    Gram_inv_aug <- solve(t(X_aug) %*% X_aug + lambda_min * diag(p_tr + 1)) # penalized version compared to OLS
-    H        <- X_aug %*% Gram_inv_aug %*% t(X_aug)
-    leverage <- diag(H)
-    resmat   <- diag(n_tr) - H
-    
-    grid.y <- seq(min(y_train) - 200, max(y_train) + 200, by = 0.1) # we can adjsut these
-    cvr    <- ceiling(0.95 * (n_tr + 1))   # conformal rank threshold
-    
-    loo_pred <- matrix(0, n_tr, 5)
-    loo_cov  <- matrix(0, n_tr, 2)
-    
-    for (i in seq_len(n_tr)) {
-      
-      # LOO coefficients via Sherman-Morrison (approximate for ridge)
-      beta_i  <- beta_vec - Gram_inv_aug %*% X_aug[i, ] * Resvec[i] / (1 - leverage[i])
-      #e_sigma_i <- sqrt(e_sigma^2 * (n_tr - p_tr) - Resvec[i]^2 / (1 - leverage[i])) / sqrt(n_tr - p_tr - 1)
-      pred_i  <- sum(X_aug[i, ] * beta_i)
-      
-      # conformal interval
-      grid_r <- sapply(grid.y, function(y) {
-        Res <- Resvec + resmat[, i] * (y - y_train[i])
-        rank(abs(Res))[i]
-      })
-      Cinterval        <- range(grid.y[grid_r <= cvr])
-      loo_pred[i, 4:5] <- Cinterval
-      loo_cov[i, 2]    <- findInterval(y_train[i], Cinterval)
-    }
-    
-    conformal_intervals_df = data.frame(
-        y_true    = y_train,
-        lower     = loo_pred[, 4],
-        upper     = loo_pred[, 5],
-        width     = loo_pred[, 5] - loo_pred[, 4],
-        covered   = loo_cov[, 2] == 1
-      )
-    
-    # plotting stuff
-    plot_df <- data.frame(
-      y     = y_train,
-      y_hat = y_hat_train,
-      resid = y_train - y_hat_train,
-      lower = conformal_intervals_df$lower,
-      upper = conformal_intervals_df$upper,
-      covered = conformal_intervals_df$covered
-  )
-    
-    fitted_plot_intervals <- ggplot(plot_df, aes(x = y, y = y_hat)) +
-      geom_ribbon(aes(ymin = lower, ymax = upper), 
-                  fill = 'steelblue', alpha = 0.2) +
-      geom_point(alpha = 0.4) +
-      geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey40") + 
-      labs(x = "Measured surface fuel load (Mg/ha)",
-           y = "Predicted surface fuel load (Mg/ha)") +
-      theme_minimal() + 
-      theme(panel.grid.minor = element_blank(),
-            panel.border = element_rect(color = "black", fill = NA, linewidth = 1.2),
-            axis.title = element_text(size = 14),
-            axis.text = element_text(size = 12)) + 
-      scale_y_continuous(limits = c(0, 500)) + 
-      scale_x_continuous(limits = c(0, 300))
-    
-    return(list(
-      RMSE = rmse,
-      R2 = r2,
-      fitted_line_plot_intervals = fitted_plot_intervals,
-      conformal_coverage = mean(loo_cov[, 2] == 1),
-      # needed stuff for plotting?
-      conformal_intervals = conformal_intervals_df)
-    )
-  }
-}
-```
-
-```{r}
-ridge <- fit_model_with_conformal(train_df = train_data, test_df = test_data, model_type = "ridge")
-
-```
-
-```{r}
-ridge$conformal_coverage
-ridge$conformal_intervals
-
-```
-
-```{r}
-ridge$fitted_line_plot_intervals
-ridge$R2
-```
-
-in OLS there is no penalty so dropping an observation doesn't change the optimization problem structure, just the data. With ridge, the proper procedure would re run cross validation each time to find a new optimal lambda wihtout observation i but that would be a lot of runs so we just fix lambda at the full data withthe minimm
-
-we need to add X_aug with an intercept column because we are doing matrix algebra by hand  and we want it to be part of the computation, but we dont want it to be shrunk towards zero- glm net handles it internally so we add it back here
