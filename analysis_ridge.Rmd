@@ -1,0 +1,166 @@
+
+```{r}
+library(glmnet)
+library(rsample)
+library(ggplot2)
+library(readr)
+library(dplyr)
+library(tidyr)
+library(tibble)
+source("helper_functions.R")
+```
+
+```{r}
+fuels_data <- read_csv("fuels_data.csv", col_types = cols(site = col_factor()))
+head(fuels_data)
+```
+
+```{r}
+## training and testing data split
+set.seed(230)
+split_data <- initial_split(fuels_data, prop = 0.75, strata = site)
+train_data <- training(split_data)
+test_data <- testing(split_data)
+
+# create model matrices 
+x_train <- model.matrix(fuel_load_Mg_ha ~ ., data = train_data)[,-1]
+x_test <- model.matrix(fuel_load_Mg_ha ~ ., data = test_data)[,-1]
+  
+y_train <- train_data$fuel_load_Mg_ha
+y_test <- test_data$fuel_load_Mg_ha
+
+# fit ridge regression with cross-validation 
+cv_fit <- cv.glmnet(x = x_train, y = y_train, alpha = 0, type.measure = "mse", standardize = TRUE)
+    
+# test and train set predictions 
+y_hat_train <- as.numeric(predict(cv_fit, newx = x_train, s = "lambda.min"))
+y_hat_test <- as.numeric(predict(cv_fit, newx = x_test, s = "lambda.min"))
+```
+
+```{r}
+# test-set performance
+ridge_performance <- pull_fit_stats(y_test, y_hat_test)
+ridge_performance$RMSE
+ridge_performance$R2
+```
+
+```{r}
+# diagnostic plots
+ridge_diags <- create_diag_plots(y_train, y_hat_train, y_test, y_hat_test)
+
+#png(file = "report_figs/ridge_resid.png", width = 7.5*600, height = 5*600, res = 600)
+ridge_diags$residual_plot
+#dev.off()
+
+#png(file = "report_figs/ridge_fitted_line.png", width = 7.5*600, height = 5*600, res = 600)
+ridge_diags$fitted_line_plot
+#dev.off()
+```
+
+```{r}
+# conformal prediction intervals for test set
+
+# standardize x 
+x_means <- colMeans(x_train)
+x_sds <- sqrt(colMeans(sweep(x_train, 2, x_means, "-")^2))
+keep_cols <- x_sds > 0 
+
+x_train_std <- scale(x_train[, keep_cols, drop = FALSE],
+                     center = x_means[keep_cols],
+                     scale = x_sds[keep_cols])
+
+x_test_std <- scale(x_test[, keep_cols, drop = FALSE],
+                    center = x_means[keep_cols],
+                    scale = x_sds[keep_cols])
+
+# add intercept
+x_aug_train <- cbind(1, x_train_std)
+x_aug_test  <- cbind(1, x_test_std)
+
+# store useful values  
+n_tr <- nrow(x_train_std)
+n_ts <- nrow(x_test_std)
+lambda_min <- cv_fit$lambda.min
+
+# conformal setup
+grid_y <- seq(min(y_train) - 300, max(y_train) + 300, by = 0.05)
+cvr <- ceiling(0.90*(n_tr + 1))
+
+# conformal intervals
+# loop over each test point 
+test_pred <- matrix(NA, n_ts, 2)
+
+for (i in 1:n_ts) {
+  
+  x_aug <- rbind(x_aug_train, x_aug_test[i, ])
+  n_aug <- n_tr + 1
+  
+  penalty_mat <- lambda_min*diag(ncol(x_aug))
+  penalty_mat[1, 1] <- 0
+  
+  gram_inv_aug <- solve(t(x_aug) %*% x_aug + penalty_mat)
+  hat_mat <- x_aug %*% gram_inv_aug %*% t(x_aug)
+  res_mat <- diag(n_aug) - hat_mat
+  
+  grid_r <- sapply(grid_y, function(y) {
+    res <- as.numeric(res_mat %*% c(y_train, y))
+    rank(abs(res))[n_aug]
+  })
+  
+  valid_y <- grid_y[grid_r <= cvr]
+  test_pred[i, ] <- if (length(valid_y) == 0) c(NA, NA) else range(valid_y)
+  
+}
+```
+
+```{r}
+# plot conformal prediction interval
+conformal_plot_df <- data.frame(y = y_test,
+                                y_hat = y_hat_test,
+                                lower = pmax(test_pred[, 1], 0), # clip to 0 for plotting
+                                upper = test_pred[, 2]) %>% 
+                      arrange(y_hat)
+
+conformal_int_plot <- ggplot(conformal_plot_df, aes(x = y_hat)) +
+   geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey40") + 
+   geom_ribbon(aes(ymin = lower, ymax = upper), 
+                   fill = 'steelblue', alpha = 0.3) +
+    geom_point(aes(y = y), alpha = 0.4) +
+    labs(x = "Predicted surface fuel load (Mg/ha)",
+         y = "Measured surface fuel load (Mg/ha)") +
+    theme_minimal() +
+    theme(panel.grid.minor = element_blank(),
+          panel.border = element_rect(color = "black", fill = NA, linewidth = 1.2),
+          axis.title = element_text(size = 14),
+          axis.text = element_text(size = 12),
+          legend.position = "top") +
+    scale_y_continuous(limits = c(0, 265), breaks = seq(0, 250, by = 50)) +
+    scale_x_continuous(limits = c(0, 265), breaks = seq(0, 250, by = 50))
+  
+#png(file = "report_figs/ridge_conformal_int.png", width = 7.5*600, height = 5*600, res = 600)
+conformal_int_plot
+#dev.off()
+```
+
+```{r}
+
+ggplot(conformal_plot_df, aes(x = y_hat, y = y_test)) +
+  
+  # prediction intervals (vertical)
+  geom_linerange(aes(ymin = lower, ymax = upper),
+                 alpha = 0.4, linewidth = 0.6) +
+  
+  # points
+  geom_point(size = 2) +
+  
+  # 1-1 line
+  geom_abline(slope = 1, intercept = 0,
+              linetype = "dashed", color = "grey40") +
+  
+  theme_minimal()
+
+
+```
+
+
+

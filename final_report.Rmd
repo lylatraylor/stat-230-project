@@ -4,6 +4,8 @@ subtitle: "Predicting Surface Fuel Loads from Terrestrial LiDAR Scan Metrics"
 author: Kea Rutherford and Lyla Traylor
 output: 
   pdf_document
+header-includes:
+  - \usepackage{float}
 ---
 
 ## Introduction 
@@ -42,15 +44,17 @@ For this project, the response variable was total surface fuel load in megagrams
 
 Our final model was a ridge regression. Because this was a predictive problem in which all the predictors are readily available to managers using terrestrial LiDAR scans processed by IntELiMon, a sparse solution was not required; thus, ridge regression was an appropriate choice. 
 
-Although ridge regression does not rely on the Gauss-Markov or Normal Linear Model assumptions, the baseline assumption of linearity must still be met. We assessed this by visually inspecting the residual plot for curvilinear trends and found no evidence of concerning model misspecification (Fig. 2, Additional work section). 
+Although ridge regression does not rely on the Gauss-Markov or Normal Linear Model assumptions, the baseline assumption of linearity must still be met. We assessed this by visually inspecting the residual plot for curvilinear trends and found no evidence of concerning model misspecification (Fig. 2 in additional work section). 
 
-Prior to model fitting, the data were split into training (75%) and test (25%) sets, with proportional representation of all six forest sites in both sets. The tuning parameter $\lambda$ was selected based on the value that minimized the mean squared error using 10-fold cross-validation on the training set. The ridge model was ultimately selected because it achieved the best predictive performance, as measured by root mean squared error (RMSE) and $R^2$, on the held-out test set.
+Prior to model fitting, the data were split into training (75%) and testing (25%) sets, with proportional representation of all six forest sites in both sets. The tuning parameter $\lambda$ was selected based on the value that minimized the mean squared error using 10-fold cross-validation on the training set. The ridge model was ultimately selected because it achieved the best predictive performance, as measured by root mean squared error (RMSE) and $R^2$, on the held-out testing set.
 
-For the final model, RMSE was 38.7 Mg/ha and $R^2$ was 0.46, indicating a moderate level of predictive performance. The fitted line plot (also based on the held-out test set) reflects this overall agreement, but also shows a tendency to overpredict smaller values and underpredict larger values (Fig. 1).
+For the final model, RMSE was 38.7 Mg/ha and $R^2$ was 0.46, indicating a moderate level of predictive performance. The fitted line plot (also based on the held-out testing set) reflects this overall agreement, but also shows a tendency to overpredict smaller values (Fig. 1).
 
-```{r fig:myimage1, echo=FALSE, fig.cap="Fitted line plot for held-out test set", out.width="75%", fig.align="center"}
+```{r fig:myimage1, echo=FALSE, fig.cap="Fitted line plot for held-out test set for ridge regression.", out.width="75%", fig.align="center", fig.pos='H'}
 knitr::include_graphics("report_figs/ridge_fitted_line.png")
 ```
+
+\newpage
 
 ## Discussion
 
@@ -60,7 +64,7 @@ Fire behavior models typically rely on a standardized set of 53 discrete surface
 
 In contrast, smoke production models use surface fuel load as a direct quantitative input. Consequently, these models require more accurate estimates of fuel load. In this context, the predictive performance of our model is likely insufficient to support reliable smoke production estimates.
 
-The model exhibits bias at the extremes, tending to overpredict low fuel loads and underpredict high fuel loads. The underprediction of high surface fuel loads is particularly concerning, as it could lead to underestimation of wildfire risk and insufficient management response.
+The model exhibits some bias, tending to overpredict low fuel loads. This is less concerning than underpredicting high surface fuel loads, which could lead to underestimation of wildfire risk and insufficient management response. 
 
 Predictive performance may be improved by incorporating LiDAR-derived metrics that more directly capture forest floor structure. For example, surface rugosity (i.e., surface roughness) has been proposed as a potentially informative predictor of surface fuel characteristics. Enhancing the set of metrics produced by IntELiMon to better represent forest floor complexity could improve model performance.
 
@@ -74,35 +78,41 @@ Forest managers are responding to the ongoing wildfire crisis across western Nor
 
 ## Additional work 
 
-We fit both ridge and LASSO (Least Absolute Shrinkage and Selection Operator) regression models. LASSO is a reasonable alternative in this setting because it performs variable selection by shrinking some coefficients exactly to zero, which can be useful when many predictors may be irrelevant, as was likely the case here. Specifically, we fit a group LASSO, which selects or removes entire groups of variables rather than individual predictors. This ensured that site, a six-level factor variable represented via five dummy variables, was selected or removed as a group. None of the numeric LiDAR variables were explicitly grouped together. 
+### Additional work and diagnostics for ridge regression 
 
-As with the ridge regression, we assessed the adequacy of the linear model by visually inspecting the residual plot for curvilinear trends. Once again, we did not find concerning evidence of model misspecification (Fig. 3).
-
-The LASSO model selected 11 variables (i.e., non-zero coefficients; Fig. 4), including site, the count of points in the 0-3 m high voxelized point clouds with tree stems and shrubs removed, five summary metrics on the entire voxelized point cloud, and four summary metrics on points classified as shrubs. 
-
-In terms of predictive performance, the LASSO model performed slightly worse than the ridge model, with a higher RMSE (39.4 vs. 38.7 Mg/ha) and a lower $R^2$ (0.44 vs. 0.46) on the held-out test set. These results suggest that, while LASSO provides a more interpretable, sparse model, the ridge regression offers better overall predictive accuracy for this application.
-
-```{r fig:myimage2, echo=FALSE, fig.cap="Residual plot for ridge regression.", out.width="75%", fig.align="center"}
+```{r fig:myimage2, echo=FALSE, fig.cap="Residual plot for ridge regression.", out.width="70%", fig.align="center", fig.pos='H'}
 knitr::include_graphics("report_figs/ridge_resid.png")
 ```
 
-```{r fig:myimage3, echo=FALSE, fig.cap="Residual plot for LASSO regression.", out.width="75%", fig.align="center"}
+For our final model (ridge regression), we constructed 90% conformal prediction intervals to quantify predictive uncertainty for each observation in the testing set (Fig. 3). Conformal prediction is appropriate in this setting because it is distribution-free and does not rely on assumptions such as homoskedasticity, instead requiring only that the data are exchangeable. In this application, the conformal prediction intervals are primarily useful for understanding the limits of predictive accuracy, rather than for directly supporting decision-making of forest managers. 
+
+```{r fig:myimage3, echo=FALSE, fig.cap="Fitted line plot for held-out test set with conformal prediction intervals.", out.width="70%", fig.align="center", fig.pos='H'}
+knitr::include_graphics("report_figs/ridge_conformal_int.png")
+```
+
+### LASSO regression 
+
+We fit both ridge and LASSO (Least Absolute Shrinkage and Selection Operator) regression models. LASSO is a reasonable alternative in this setting because it performs variable selection by shrinking some coefficients exactly to zero, which can be useful when many predictors may be irrelevant, as was likely the case here. Specifically, we fit a group LASSO, which selects or removes entire groups of variables rather than individual predictors. This ensured that site, a six-level factor variable represented via five dummy variables, was selected or removed as a group. None of the numeric LiDAR variables were explicitly grouped together. 
+
+As with the ridge regression, we assessed the adequacy of the linear model by visually inspecting the residual plot for curvilinear trends. Once again, we did not find concerning evidence of model misspecification (Fig. 4).
+
+```{r fig:myimage4, echo=FALSE, fig.cap="Residual plot for LASSO regression.", out.width="70%", fig.align="center", fig.pos='H'}
 knitr::include_graphics("report_figs/lasso_resid.png")
 ```
 
-```{r fig:myimage4, echo=FALSE, fig.cap="LASSO coefficient path plot. Dashed line indicates selected lambda value.", out.width="75%", fig.align="center"}
+\newpage
+
+The LASSO model selected 11 variables (i.e., non-zero coefficients; Fig. 5), including site, the count of points in the 0-3 m high voxelized point clouds with tree stems and shrubs removed, five summary metrics on the entire voxelized point cloud, and four summary metrics on points classified as shrubs. 
+
+```{r fig:myimage5, echo=FALSE, fig.cap="LASSO coefficient path plot. Dashed line indicates selected lambda value.", out.width="70%", fig.align="center", fig.pos='H'}
 knitr::include_graphics("report_figs/lasso_coefs.png")
 ```
 
-On our final ridge model, we also compute a leave-one-out conformal prediction interval at 90% confidence. This quantifies the predictive uncertainty for each observation in the training set. A traditional confidence interval characterizes the uncertainty around a population parameter such as the mean. A conformal prediction interval is instead constructed to contain the true response value for a new individual observation with a specified probability. It is also distribution-free and thus does not need to assume normality or homoskedasticity of the residuals.
+In terms of predictive performance, the LASSO model performed slightly worse than the ridge model, with a higher RMSE (39.4 vs. 38.7 Mg/ha) and a lower $R^2$ (0.44 vs. 0.46) on the held-out testing set. The fitted line plot reflects this moderate predictive performance (Fig. 6). These results suggest that, while LASSO provides a more interpretable, sparse model, the ridge regression offers better overall predictive accuracy for this application.
 
-The conformal intervals for our ridge model were quite wide, with a median width of 268.5 Mg/ha and a mean of 300.9 Mg/ha, with some intervals extending nearly 800 Mg/ha at the upper end of the fuel load range. This width reflects the variability in surface fuel load that the model cannot explain. This limits the practical utility of the intervals for precise prediction.
-
-```{r fig:myimage5, echo=FALSE, fig.cap="Fitted line plot with conformal interval", out.width="75%", fig.align="center"}
-knitr::include_graphics("report_figs/ridge_fitted_line_interval.png")
+```{r fig:myimage6, echo=FALSE, fig.cap="Fitted line plot for held-out test set for LASSO regression.", out.width="70%", fig.align="center", fig.pos='H'}
+knitr::include_graphics("report_figs/lasso_fitted_line.png")
 ```
-
-\newpage
 
 ## References 
 
@@ -114,16 +124,16 @@ Brown, J.K. (1974). *Handbook for inventorying downed woody material.* General T
 
 Kea Rutherford gathered the necessary data, wrote the code for the LASSO regression, and wrote the first draft of the report. 
 
-Lyla Traylor added the code for the ridge regression, wrote the code for the conformal prediction interval, and edited the report.
+Lyla Traylor wrote the code for the ridge regression (including the code for the conformal prediction interval) and edited the report.
 
 \newpage
 
 ## Appendix
 
-```{r fig:myimage5, echo=FALSE, fig.cap="Terrestrial LiDAR point cloud, entire plot", out.width="75%", fig.align="center"}
+```{r fig:myimage7, echo=FALSE, fig.cap="Terrestrial LiDAR point cloud, entire plot", out.width="75%", fig.align="center"}
 knitr::include_graphics("report_figs/tls_scan_1.png")
 ```
 
-```{r fig:myimage6, echo=FALSE, fig.cap="Terrestrial LiDAR point cloud, zoomed in", out.width="75%", fig.align="center"}
+```{r fig:myimage8, echo=FALSE, fig.cap="Terrestrial LiDAR point cloud, zoomed in", out.width="75%", fig.align="center"}
 knitr::include_graphics("report_figs/tls_scan_2.png")
 ```
