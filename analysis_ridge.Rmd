@@ -29,12 +29,20 @@ x_test <- model.matrix(fuel_load_Mg_ha ~ ., data = test_data)[,-1]
 y_train <- train_data$fuel_load_Mg_ha
 y_test <- test_data$fuel_load_Mg_ha
 
+# standardize x (easier for later conformal prediction)
+x_means <- colMeans(x_train)
+x_sds <- apply(x_train, 2, sd)
+x_sds[x_sds == 0] <- 1
+
+x_train_std <- scale(x_train, center = x_means, scale = x_sds)
+x_test_std  <- scale(x_test, center = x_means, scale = x_sds)
+
 # fit ridge regression with cross-validation 
-cv_fit <- cv.glmnet(x = x_train, y = y_train, alpha = 0, type.measure = "mse", standardize = TRUE)
+cv_fit <- cv.glmnet(x = x_train_std, y = y_train, alpha = 0, type.measure = "mse", standardize = FALSE)
     
 # test and train set predictions 
-y_hat_train <- as.numeric(predict(cv_fit, newx = x_train, s = "lambda.min"))
-y_hat_test <- as.numeric(predict(cv_fit, newx = x_test, s = "lambda.min"))
+y_hat_train <- as.numeric(predict(cv_fit, newx = x_train_std, s = "lambda.min"))
+y_hat_test <- as.numeric(predict(cv_fit, newx = x_test_std, s = "lambda.min"))
 ```
 
 ```{r}
@@ -59,36 +67,28 @@ ridge_diags$fitted_line_plot
 
 ```{r}
 # conformal prediction intervals for training set
-
-# standardize x 
-x_means <- colMeans(x_train)
-x_sds <- apply(x_train, 2, sd)
-x_sds[x_sds == 0] <- 1 # avoid division by 0
-x_train_std <- scale(x_train, center = x_means, scale = x_sds)
-
 x_aug_std <- cbind(1, x_train_std) # add intercept
 
 # store values 
-n <- nrow(x_train)
-p <- ncol(x_train)
-grid_y <- seq(min(y_train) - 25, max(y_train) + 25, by = 0.1)
+n <- nrow(x_train_std)
+p <- ncol(x_train_std)
+grid_y <- seq(min(y_train) - 50, max(y_train) + 50, by = 0.1)
 lambda <- cv_fit$lambda.min
     
 # conformal setup
 penalty_mat <- lambda*diag(p + 1)
 penalty_mat[1, 1] <- 0
-Gram_inv <- MASS::ginv(t(x_aug_std) %*% x_aug_std + penalty_mat)
+
+Gram_inv <- solve(t(x_aug_std) %*% x_aug_std + penalty_mat)
 hatmat <- x_aug_std %*% Gram_inv %*% t(x_aug_std)
 resmat <- diag(n) - hatmat
 
-beta_hat <- Gram_inv %*% t(x_aug_std) %*% y_train
-y_hat_train_std <- x_aug_std %*% beta_hat
-Resvec <- y_train - y_hat_train_std
+Resvec <- y_train - y_hat_train
 
 cvr <- ceiling(0.90*(n + 1))
 loo_pred <- matrix(0, n, 2)
 
-# construct PI for each training point
+# loop over each training point
 for (i in 1:n) {
   
   grid_r <- sapply(grid_y, function(y) {
@@ -127,8 +127,8 @@ conformal_int_plot <- ggplot() +
     scale_y_continuous(limits = c(0, 300), breaks = seq(0, 300, by = 100), oob = scales::squish) +
     scale_x_continuous(limits = c(0, 200), breaks = seq(0, 200, by = 100))
   
-#png(file = "report_figs/ridge_conformal_int.png", width = 7.5*600, height = 5*600, res = 600)
+png(file = "report_figs/ridge_conformal_int.png", width = 7.5*600, height = 5*600, res = 600)
 conformal_int_plot
-#dev.off()
+dev.off()
 ```
 

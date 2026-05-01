@@ -84,7 +84,7 @@ coef_path_df_long <- coef_path_df %>%
          lambda <= 10)
     
 coef_path_plot <- ggplot(coef_path_df_long, aes(x = lambda, y = estimate, group = term, color = term)) +
-  geom_line(linewidth = 0.5) +
+  geom_line(linewidth = 0.6) +
   geom_vline(xintercept = cv_fit$lambda.min, linetype = "dashed", linewidth = 0.9) +
   theme_minimal() +
   theme(legend.position = "none",

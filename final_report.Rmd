@@ -22,7 +22,7 @@ A total of 164 plots were measured across six sites in the Sierra Nevada mixed-c
 \centering
 \begin{tabular}{lc}
 \hline
-site & number of plots \\
+Site & Number of Plots \\
 \hline
 BGL & 25 \\
 DLB & 26 \\
@@ -38,7 +38,7 @@ all sites & 164 \\
 
 At each plot, a terrestrial LiDAR scan was taken at plot center. All scans were uploaded to and processed by IntELiMon (Interagency Ecosystem LiDAR Monitoring program maintained by the US Geological Survey's Earth Resources Observation and Science Center). The output from IntELiMon is a large set of plot-level summary metrics derived from the LiDAR scans. Example metrics include: (1) fine_l1_cnt (count of points in the 0-3 meter high voxelized point clouds with tree stems and shrubs removed), (2) TBA (total basal area of all detected overstory trees calculated from classified stem points in the point cloud), and (3) shrubs_l1_cnt (count of points in the Shrub classified voxelized point cloud). Surface fuels were also directly measured at each plot using line-intercept transects (the current standard field-based method; Brown 1974). 
 
-For this project, the response variable was total surface fuel load in megagrams per hectare (Mg/ha) calculated from the line-intercept transect data. The response variable is continuous, ranging from 0.89 to 299.85. The predictor variables consisted of site (a factor variable with six levels) and 74 summary metrics derived by IntELiMON from the terrestrial LiDAR scans (all of which are numeric). 
+For this project, the response variable was total surface fuel load in megagrams per hectare (Mg/ha) calculated from the line-intercept transect data. The response variable is continuous, ranging from 0.89 to 299.85 Mg/ha. The predictor variables consisted of site (a factor variable with six levels) and 74 summary metrics derived by IntELiMON from the terrestrial LiDAR scans (all of which are numeric). 
 
 ## Final regression model 
 
@@ -50,7 +50,7 @@ Prior to model fitting, the data were split into training (75%) and testing (25%
 
 For the final model, RMSE was 38.7 Mg/ha and $R^2$ was 0.46, indicating a moderate level of predictive performance. The fitted line plot (also based on the held-out testing set) reflects this overall agreement, but also shows a tendency to overpredict smaller values (Fig. 1).
 
-```{r fig:myimage1, echo=FALSE, fig.cap="Fitted line plot for held-out test set for ridge regression.", out.width="75%", fig.align="center", fig.pos='H'}
+```{r fig:myimage1, echo=FALSE, fig.cap="Ridge regression fitted line plot for testing set.", out.width="80%", fig.align="center", fig.pos='H'}
 knitr::include_graphics("report_figs/ridge_fitted_line.png")
 ```
 
@@ -80,15 +80,19 @@ Forest managers are responding to the ongoing wildfire crisis across western Nor
 
 ### Additional work and diagnostics for ridge regression 
 
-```{r fig:myimage2, echo=FALSE, fig.cap="Residual plot for ridge regression.", out.width="70%", fig.align="center", fig.pos='H'}
+```{r fig:myimage2, echo=FALSE, fig.cap="Ridge regression residual plot.", out.width="80%", fig.align="center", fig.pos='H'}
 knitr::include_graphics("report_figs/ridge_resid.png")
 ```
 
-For our final model (ridge regression), we constructed 90% conformal prediction intervals to quantify predictive uncertainty for each observation in the testing set (Fig. 3). Conformal prediction is appropriate in this setting because it is distribution-free and does not rely on assumptions such as homoskedasticity, instead requiring only that the data are exchangeable. In this application, the conformal prediction intervals are primarily useful for understanding the limits of predictive accuracy, rather than for directly supporting decision-making of forest managers. 
+\newpage
 
-```{r fig:myimage3, echo=FALSE, fig.cap="Fitted line plot for held-out test set with conformal prediction intervals.", out.width="70%", fig.align="center", fig.pos='H'}
+For our final model (ridge regression), we constructed 90% conformal prediction intervals to quantify predictive uncertainty. Conformal prediction is appropriate in this setting because it is distribution-free and does not rely on assumptions such as homoskedasticity, instead requiring only that the data are exchangeable. We constructed the intervals using the training set and then displayed them on the fitted-line plot for the held-out testing set (Fig. 3). We would expect approximately 90% of the test data points to fall within the prediction interval; in this test set, 100% of the data points fell within the interval. In this particular application, the prediction intervals were very wide, limiting their usefulness for informing surface fuel load predictions in practice. 
+
+```{r fig:myimage3, echo=FALSE, fig.cap="Fitted line plot for testing set with conformal prediction intervals generated from training set.", out.width="80%", fig.align="center", fig.pos='H'}
 knitr::include_graphics("report_figs/ridge_conformal_int.png")
 ```
+
+\newpage
 
 ### LASSO regression 
 
@@ -96,7 +100,7 @@ We fit both ridge and LASSO (Least Absolute Shrinkage and Selection Operator) re
 
 As with the ridge regression, we assessed the adequacy of the linear model by visually inspecting the residual plot for curvilinear trends. Once again, we did not find concerning evidence of model misspecification (Fig. 4).
 
-```{r fig:myimage4, echo=FALSE, fig.cap="Residual plot for LASSO regression.", out.width="70%", fig.align="center", fig.pos='H'}
+```{r fig:myimage4, echo=FALSE, fig.cap="LASSO regression residual plot.", out.width="70%", fig.align="center", fig.pos='H'}
 knitr::include_graphics("report_figs/lasso_resid.png")
 ```
 
@@ -110,9 +114,11 @@ knitr::include_graphics("report_figs/lasso_coefs.png")
 
 In terms of predictive performance, the LASSO model performed slightly worse than the ridge model, with a higher RMSE (39.4 vs. 38.7 Mg/ha) and a lower $R^2$ (0.44 vs. 0.46) on the held-out testing set. The fitted line plot reflects this moderate predictive performance (Fig. 6). These results suggest that, while LASSO provides a more interpretable, sparse model, the ridge regression offers better overall predictive accuracy for this application.
 
-```{r fig:myimage6, echo=FALSE, fig.cap="Fitted line plot for held-out test set for LASSO regression.", out.width="70%", fig.align="center", fig.pos='H'}
+```{r fig:myimage6, echo=FALSE, fig.cap="LASSO regression fitted line plot for testing set.", out.width="70%", fig.align="center", fig.pos='H'}
 knitr::include_graphics("report_figs/lasso_fitted_line.png")
 ```
+
+\newpage
 
 ## References 
 
