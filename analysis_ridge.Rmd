@@ -58,89 +58,74 @@ ridge_diags$fitted_line_plot
 ```
 
 ```{r}
-# conformal prediction intervals for test set
+# conformal prediction intervals for training set
 
-# standardize x (and avoid division by 0)
+# standardize x 
 x_means <- colMeans(x_train)
-x_sds <- sqrt(colMeans(sweep(x_train, 2, x_means, "-")^2))
-
-zero_sd <- x_sds == 0
-x_sds_safe <- x_sds
-x_sds_safe[zero_sd] <- 1
-
+x_sds <- apply(x_train, 2, sd)
+x_sds[x_sds == 0] <- 1 # avoid division by 0
 x_train_std <- scale(x_train, center = x_means, scale = x_sds)
-x_test_std <- scale(x_test, center = x_means, scale = x_sds)
 
-x_train_std[, zero_sd] <- 0
-x_test_std[, zero_sd] <- 0
+x_aug_std <- cbind(1, x_train_std) # add intercept
 
-# add intercept
-x_aug_train <- cbind(1, x_train_std)
-x_aug_test  <- cbind(1, x_test_std)
-
-# store useful values  
-n_tr <- nrow(x_train_std)
-n_ts <- nrow(x_test_std)
-lambda_min <- cv_fit$lambda.min
-
+# store values 
+n <- nrow(x_train)
+p <- ncol(x_train)
+grid_y <- seq(min(y_train) - 25, max(y_train) + 25, by = 0.1)
+lambda <- cv_fit$lambda.min
+    
 # conformal setup
-grid_y <- seq(min(y_train) - 200, max(y_train) + 200, by = 0.1)
-cvr <- ceiling(0.90*(n_tr + 1))
+penalty_mat <- lambda*diag(p + 1)
+penalty_mat[1, 1] <- 0
+Gram_inv <- MASS::ginv(t(x_aug_std) %*% x_aug_std + penalty_mat)
+hatmat <- x_aug_std %*% Gram_inv %*% t(x_aug_std)
+resmat <- diag(n) - hatmat
 
-test_pred <- matrix(NA, n_ts, 2)
+beta_hat <- Gram_inv %*% t(x_aug_std) %*% y_train
+y_hat_train_std <- x_aug_std %*% beta_hat
+Resvec <- y_train - y_hat_train_std
 
-# construct PI for each test point 
-for (i in 1:n_ts) {
+cvr <- ceiling(0.90*(n + 1))
+loo_pred <- matrix(0, n, 2)
+
+# construct PI for each training point
+for (i in 1:n) {
   
-  # augment training set with one test point
-  x_aug <- rbind(x_aug_train, x_aug_test[i, ])
-  n_aug <- n_tr + 1
-  
-  # ridge penalty matrix
-  penalty_mat <- lambda_min*diag(ncol(x_aug))
-  penalty_mat[1, 1] <- 0
-  
-  # ridge hat/residual matrix
-  gram_inv_aug <- MASS::ginv(t(x_aug) %*% x_aug + penalty_mat)
-  hat_mat <- x_aug %*% gram_inv_aug %*% t(x_aug)
-  res_mat <- diag(n_aug) - hat_mat
-  
-  # candidate residual ranks
   grid_r <- sapply(grid_y, function(y) {
-    res <- as.numeric(res_mat %*% c(y_train, y))
-    rank(abs(res))[n_aug]
+    Res <- Resvec + resmat[, i] * (y - y_train[i])
+    rank(abs(Res))[i]
   })
-  
-  # keep candidate y values with acceptable conformal rank
-  valid_y <- grid_y[grid_r <= cvr]
-  test_pred[i, ] <- if (length(valid_y) == 0) c(NA, NA) else range(valid_y)
-  
+      
+  Cinterval <- range(grid_y[grid_r <= cvr])
+  loo_pred[i,] <- Cinterval
+      
 }
 ```
 
 ```{r}
 # plot conformal prediction interval
-conformal_plot_df <- data.frame(y = y_test,
-                                y_hat = y_hat_test,
-                                lower = pmax(test_pred[, 1], 0), # clip to 0 for plotting
-                                upper = test_pred[, 2]) %>% 
-                      arrange(y_hat)
+conformal_df <- data.frame(y_hat = y_hat_train,
+                           lower = pmax(loo_pred[, 1], 0), # clip to 0
+                           upper = loo_pred[, 2]) %>% 
+                arrange(y_hat)
 
-conformal_int_plot <- ggplot(conformal_plot_df, aes(x = y_hat)) +
+test_df <- data.frame(y = y_test, 
+                      y_hat = y_hat_test)
+
+conformal_int_plot <- ggplot() +
     geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "grey40") + 
-    geom_ribbon(aes(ymin = lower, ymax = upper), 
-                    fill = 'steelblue', alpha = 0.3) +
-    geom_point(aes(y = y), alpha = 0.4) +
+    geom_ribbon(data = conformal_df, aes(x = y_hat, ymin = lower, ymax = upper),
+                fill = 'steelblue', alpha = 0.3) +
+    geom_point(data = test_df, aes(x = y_hat, y = y), alpha = 0.4) +
     labs(x = "Predicted surface fuel load (Mg/ha)",
          y = "Measured surface fuel load (Mg/ha)") +
     theme_minimal() +
     theme(panel.grid.minor = element_blank(),
           panel.border = element_rect(color = "black", fill = NA, linewidth = 1.2),
           axis.title = element_text(size = 14),
-          axis.text = element_text(size = 12),
-          legend.position = "top") +
-    scale_y_continuous(limits = c(0, 265), breaks = seq(0, 250, by = 50)) +
-    scale_x_continuous(limits = c(0, 265), breaks = seq(0, 250, by = 50))
+          axis.text = element_text(size = 12)) +
+    scale_y_continuous(limits = c(0, 300), breaks = seq(0, 300, by = 100), oob = scales::squish) +
+    scale_x_continuous(limits = c(0, 200), breaks = seq(0, 200, by = 100))
   
 #png(file = "report_figs/ridge_conformal_int.png", width = 7.5*600, height = 5*600, res = 600)
 conformal_int_plot
