@@ -11,6 +11,7 @@ pull_fit_stats <- function(y_test_input, y_hat_test_input) {
   
 }
 
+
 create_diag_plots <- function(y_train_input, y_hat_train_input, y_test_input, y_hat_test_input) {
   
   resid_plot_df <- data.frame(

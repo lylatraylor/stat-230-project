@@ -36,7 +36,7 @@ all sites & 164 \\
 \caption{Number of observations across sites.}
 \end{table}
 
-At each plot, a terrestrial LiDAR scan was taken at plot center. All scans were uploaded to and processed by IntELiMon (Interagency Ecosystem LiDAR Monitoring program maintained by the US Geological Survey's Earth Resources Observation and Science Center). The output from IntELiMon is a large set of plot-level summary metrics derived from the LiDAR scans. Example metrics include: (1) fine_l1_cnt (count of points in the 0-3 meter high voxelized point clouds with tree stems and shrubs removed), (2) TBA (total basal area of all detected overstory trees calculated from classified stem points in the point cloud), and (3) shrubs_l1_cnt (count of points in the Shrub classified voxelized point cloud). Surface fuels were also directly measured at each plot using line-intercept transects (the current standard field-based method; Brown 1974). 
+At each plot, a terrestrial LiDAR scan was taken at plot center. All scans were uploaded to and processed by IntELiMon (Interagency Ecosystem LiDAR Monitoring program; Connot and Nelson 2026). The output from IntELiMon is a large set of plot-level summary metrics derived from the LiDAR scans. Example metrics include: (1) fine_l1_cnt (count of points in the 0-3 meter high voxelized point clouds with tree stems and shrubs removed), (2) TBA (total basal area of all detected overstory trees calculated from classified stem points in the point cloud), and (3) shrubs_l1_cnt (count of points in the Shrub classified voxelized point cloud). Surface fuels were also directly measured at each plot using line-intercept transects (the current standard field-based method; Brown 1974). 
 
 For this project, the response variable was total surface fuel load in megagrams per hectare (Mg/ha) calculated from the line-intercept transect data. The response variable is continuous, ranging from 0.89 to 299.85 Mg/ha. The predictor variables consisted of site (a factor variable with six levels) and 74 summary metrics derived by IntELiMON from the terrestrial LiDAR scans (all of which are numeric). 
 
@@ -122,15 +122,17 @@ knitr::include_graphics("report_figs/lasso_fitted_line.png")
 
 ## References 
 
-Scott, J.H., and R.E. Burgan (2005). *Standard fire behavior fuel models: A comprehensive set for use with Rothermel's Surface Fire Spread model.* General Technical Report 153. USDA Forest Service, Rocky Mountain Research Station, Fort Collins, CO.
-
 Brown, J.K. (1974). *Handbook for inventorying downed woody material.* General Technical Report INT-16. USDA Forest Service, Intermountain Forest and Range Experiment Station, Ogden, UT.
+
+Connot, J., and K. Nelson (2026). *Interagency Ecosystem LiDAR Monitoring (IntELiMon).* US Geological Survey, Earth Resources Observation and Science (EROS) Center.  
+
+Scott, J.H., and R.E. Burgan (2005). *Standard fire behavior fuel models: A comprehensive set for use with Rothermel's Surface Fire Spread model.* General Technical Report 153. USDA Forest Service, Rocky Mountain Research Station, Fort Collins, CO.
 
 ## Statement of contribution 
 
-Kea Rutherford gathered the necessary data, wrote the code for the LASSO regression, and wrote the first draft of the report. 
+Kea Rutherford gathered and organized the necessary data, wrote the code for the LASSO regression, and wrote the first full draft of the report. 
 
-Lyla Traylor wrote the code for the ridge regression (including the code for the conformal prediction interval) and edited the report.
+Lyla Traylor wrote the code for the ridge regression (including the code for the conformal prediction intervals) and edited the report.
 
 \newpage
 
