@@ -106,13 +106,13 @@ knitr::include_graphics("report_figs/lasso_resid.png")
 
 \newpage
 
-The LASSO model selected 11 variables (i.e., non-zero coefficients; Fig. 5), including site, the count of points in the 0-3 m high voxelized point clouds with tree stems and shrubs removed, five summary metrics on the entire voxelized point cloud, and four summary metrics on points classified as shrubs. 
+The LASSO model selected 22 variables (i.e., non-zero coefficients; Fig. 5), including site, five summary metrics on the 0-3 m high voxelized point clouds with tree stems and shrubs removed, four summary metrics on the entire voxelized point cloud, five summary metrics on points classified as trees, and seven summary metrics on points classified as shrubs. 
 
 ```{r fig:myimage5, echo=FALSE, fig.cap="LASSO coefficient path plot. Dashed line indicates selected lambda value.", out.width="70%", fig.align="center", fig.pos='H'}
 knitr::include_graphics("report_figs/lasso_coefs.png")
 ```
 
-In terms of predictive performance, the LASSO model performed slightly worse than the ridge model, with a higher RMSE (39.4 vs. 38.7 Mg/ha) and a lower $R^2$ (0.44 vs. 0.46) on the held-out testing set. The fitted line plot reflects this moderate predictive performance (Fig. 6). These results suggest that, while LASSO provides a more interpretable, sparse model, the ridge regression offers better overall predictive accuracy for this application.
+In terms of predictive performance, the LASSO model performed slightly worse than the ridge model, with a higher RMSE (41.3 vs. 38.7 Mg/ha) and a lower $R^2$ (0.39 vs. 0.46) on the held-out testing set. The fitted line plot reflects this moderate predictive performance (Fig. 6). These results suggest that, while LASSO provides a more interpretable, sparse model, the ridge regression offers better overall predictive accuracy for this application.
 
 ```{r fig:myimage6, echo=FALSE, fig.cap="LASSO regression fitted line plot for testing set.", out.width="70%", fig.align="center", fig.pos='H'}
 knitr::include_graphics("report_figs/lasso_fitted_line.png")
