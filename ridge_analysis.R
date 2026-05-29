@@ -58,8 +58,14 @@ ridge_performance$R2
 
 # diagnostic plots
 ridge_diags <- create_diag_plots(y_train, y_hat_train, y_test, y_hat_test)
+
+#png(file = "report_figs/ridge_resid.png", width = 7.5*600, height = 5*600, res = 600)
 ridge_diags$residual_plot
+#dev.off()
+
+#png(file = "report_figs/ridge_fitted_line.png", width = 7.5*600, height = 5*600, res = 600)
 ridge_diags$fitted_line_plot
+#dev.off()
 
 
 ################################################################################
@@ -128,4 +134,6 @@ conformal_int_plot <- ggplot() +
   scale_y_continuous(limits = c(0, 300), breaks = seq(0, 300, by = 100), oob = scales::squish) +
   scale_x_continuous(limits = c(0, 200), breaks = seq(0, 200, by = 100))
 
+#png(file = "report_figs/ridge_conformal_int.png", width = 7.5*600, height = 5*600, res = 600)
 conformal_int_plot
+#dev.off()

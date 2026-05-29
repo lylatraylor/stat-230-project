@@ -58,8 +58,14 @@ lasso_performance$R2
 
 # diagnostic plots
 lasso_diags <- create_diag_plots(y_train, y_hat_train, y_test, y_hat_test)
+
+#png(file = "report_figs/lasso_resid.png", width = 7.5*600, height = 5*600, res = 600)
 lasso_diags$residual_plot
+#dev.off()
+
+#png(file = "report_figs/lasso_fitted_line.png", width = 7.5*600, height = 5*600, res = 600)
 lasso_diags$fitted_line_plot
+#dev.off()
 
 
 ################################################################################
@@ -95,4 +101,6 @@ coef_path_plot <- ggplot(coef_path_df_long, aes(x = lambda, y = estimate, group 
        y = "Coefficient") + 
   scale_x_continuous(limits = c(0, 10), breaks = 0:10)
 
+#png(file = "report_figs/lasso_coefs.png", width = 7.5*600, height = 5*600, res = 600)
 coef_path_plot
+#dev.off()
